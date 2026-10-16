@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{outputs.title.page}"></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h2 th:text="#{outputs.title}"></h2>
+                    <p class="text-muted small" th:text="#{outputs.review}"></p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm lang-switch" onchange="if(this.value)window.location.href='/language/switch?lang='+this.value+'&redirect=/outputs'">
+                        <option value="" th:text="#{navbar.language}"></option>
+                        <option value="ar" th:text="#{lang.ar}"></option>
+                        <option value="en" th:text="#{lang.en}"></option>
+                        <option value="es" th:text="#{lang.es}"></option>
+                        <option value="es-MX" th:text="#{lang.es-MX}"></option>
+                        <option value="fr" th:text="#{lang.fr}"></option>
+                        <option value="de" th:text="#{lang.de}"></option>
+                        <option value="de-AT" th:text="#{lang.de-AT}"></option>
+                        <option value="it" th:text="#{lang.it}"></option>
+                        <option value="nl" th:text="#{lang.nl}"></option>
+                        <option value="pt" th:text="#{lang.pt}"></option>
+                        <option value="ru" th:text="#{lang.ru}"></option>
+                        <option value="uk" th:text="#{lang.uk}"></option>
+                        <option value="af" th:text="#{lang.af}"></option>
+                        <option value="zh" th:text="#{lang.zh}"></option>
+                        <option value="ja" th:text="#{lang.ja}"></option>
+                    </select>
+                    <a th:href="@{/app}" class="btn btn-nova btn-sm" th:text="#{accounts.backToApp}"></a>
+                </div>
+            </div>
+
+            <div th:if="${outputs.empty}" class="text-center text-muted py-4" th:text="#{outputs.empty}"></div>
+
+            <div th:each="output : ${outputs}">
+                <div class="output-item" th:attr="data-output-id=${output.id}">
+                    <div class="output-meta">
+                        <span class="badge-tab" th:text="${output.tabUsed}">tab</span>
+                        <span class="text-muted small" th:text="${#temporals.format(output.createdAt, 'yyyy-MM-dd HH:mm')}">2025-01-01 00:00</span>
+                        <button class="btn-delete" th:attr="data-output-id=${output.id}" onclick="var confirmEl=this.parentElement.nextElementSibling; if(confirmEl && confirmEl.classList.contains('delete-confirm')){confirmEl.style.display='flex';}">Delete</button>
+                        <span class="toggle-icon">▶</span>
+                    </div>
+                    <div class="delete-confirm" id="delete-confirm-${output.id}">
+                        <span>Delete this output permanently?</span>
+                        <button class="btn-confirm-delete" th:attr="data-output-id=${output.id}" onclick="var c=this.closest('.delete-confirm'); var item=c.closest('.output-item'); item.style.opacity='0.6'; item.style.pointerEvents='none'; var f=document.createElement('form'); f.method='POST'; f.action='/outputs/'+this.getAttribute('data-output-id')+'/delete'; f.style.display='none'; document.body.appendChild(f); f.submit();">Yes, Delete</button>
+                        <button class="btn-cancel-delete" onclick="this.closest('.delete-confirm').style.display='none'">Cancel</button>
+                    </div>
+                    <div class="output-text bidi-isolate" th:utext="${output.outputText}" th:attr="dir='auto'"></div>
+                </div>
+            </div>
+
+            <nav th:if="${totalPages > 1}" class="mt-3">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled' : ''">
+                        <a class="page-link" th:href="@{/outputs(page=0, tab=${filterTab})}" th:text="#{outputs.first}"></a>
+                    </li>
+                    <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled' : ''">
+                        <a class="page-link" th:href="@{/outputs(page=${currentPage - 1}, tab=${filterTab})}" th:text="#{outputs.previous}"></a>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link" th:text="${currentPage + 1} + ' ' + #{outputs.of} + ' ' + ${totalPages}">1 of 1</span>
+                    </li>
+                    <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled' : ''">
+                        <a class="page-link" th:href="@{/outputs(page=${currentPage + 1}, tab=${filterTab})}" th:text="#{outputs.next}"></a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+    <script>
+        function toggleOutputText(toggleIcon) {
+            const outputText = toggleIcon.closest('.output-item').querySelector('.output-text');
+            const isExpanded = outputText.classList.contains('expanded');
+            
+            document.querySelectorAll('.output-text.expanded').forEach(el => {
+                el.classList.remove('expanded');
+                el.style.display = 'none';
+                const icon = el.closest('.output-item').querySelector('.toggle-icon');
+                if (icon) icon.textContent = '▶';
+            });
+            
+            if (!isExpanded) {
+                outputText.classList.add('expanded');
+                outputText.style.display = 'block';
+                toggleIcon.textContent = '▼';
+            } else {
+                toggleIcon.textContent = '▶';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.toggle-icon').forEach(icon => {
+                icon.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    toggleOutputText(this);
+                });
+            });
+
+            document.querySelectorAll('.output-meta').forEach(meta => {
+                meta.addEventListener('click', function(e) {
+                    if (!e.target.classList.contains('btn-delete') && 
+                        !e.target.classList.contains('btn-confirm-delete') && 
+                        !e.target.classList.contains('btn-cancel-delete')) {
+                        const toggleIcon = this.querySelector('.toggle-icon');
+                        if (toggleIcon) {
+                            toggleOutputText(toggleIcon);
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script>
+        function renderMath() {
+            document.querySelectorAll('.output-text math').forEach(function(el) {
+                if (el.dataset.katexRendered) return;
+                try {
+                    katex.render(el.textContent, el, {
+                        displayMode: el.classList.contains('display-math'),
+                        throwOnError: false,
+                    });
+                    el.dataset.katexRendered = 'true';
+                } catch (e) {
+                    console.error('KaTeX render error:', e);
+                }
+            });
+
+            // Render $$...$$ display math and \(...\) inline math
+            renderDelimitedMath();
+        }
+
+        function renderDelimitedMath() {
+            const containers = document.querySelectorAll('.output-text');
+            containers.forEach(function(container) {
+                if (container.dataset.katexProcessed) return;
+                container.dataset.katexProcessed = 'true';
+
+                // Process display math: $$...$$
+                let html = container.innerHTML;
+                html = html.replace(/\$\$([\s\S]*?)\$\$/g, function(match, tex) {
+                    try {
+                        var clean = tex.replace(/<[^>]*>/g, '').replace(/&lt;\/?[a-zA-Z][^&]*&gt;/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').trim();
+                        return katex.renderToString(clean, { displayMode: true, throwOnError: false });
+                    } catch (e) {
+                        console.error('KaTeX render error:', e);
+                        return match;
+                    }
+                });
+
+                // Process inline math: \(...\)
+                html = html.replace(/\\\(([\s\S]*?)\\\)/g, function(match, tex) {
+                    try {
+                        var clean = tex.replace(/<[^>]*>/g, '').replace(/&lt;\/?[a-zA-Z][^&]*&gt;/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').trim();
+                        return katex.renderToString(clean, { displayMode: false, throwOnError: false });
+                    } catch (e) {
+                        console.error('KaTeX render error:', e);
+                        return match;
+                    }
+                });
+
+                // Process inline math: $...$ (only if not already inside $$)
+                html = html.replace(/(?<!\$)\$(?!\$)([^\n$]+?)(?<!\$)\$(?!\$)/g, function(match, tex) {
+                    try {
+                        var clean = tex.replace(/<[^>]*>/g, '').replace(/&lt;\/?[a-zA-Z][^&]*&gt;/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').trim();
+                        return katex.renderToString(clean, { displayMode: false, throwOnError: false });
+                    } catch (e) {
+                        console.error('KaTeX render error:', e);
+                        return match;
+                    }
+                });
+
+                container.innerHTML = html;
+            });
+        }
+        window.addEventListener('load', renderMath);
+        document.addEventListener('DOMContentLoaded', renderMath);
+
+        var katexObserver = new MutationObserver(function(mutations) {
+            var shouldRender = false;
+            for (var i = 0; i < mutations.length; i++) {
+                if (mutations[i].type === 'childList' && mutations[i].addedNodes.length > 0) {
+                    shouldRender = true;
+                    break;
+                }
+            }
+            if (shouldRender) renderMath();
+        });
+        katexObserver.observe(document.body, { childList: true, subtree: true });
+    </script>
+</body>
+</html>

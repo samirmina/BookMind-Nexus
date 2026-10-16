@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" xmlns:th="http://www.thymeleaf.org"
+      th:lang="${langAttr}" th:dir="${dirAttr}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{contact.title.page}"></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="/" class="brand">
+                <span class="brand-icon">🧠</span>
+                <span th:text="#{home.brand}"></span>
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link" th:text="#{navbar.home}"></a>
+                <a href="/about" class="nav-link" th:text="#{navbar.about}"></a>
+                <a href="/contact" class="nav-link active" th:text="#{navbar.contact}"></a>
+                <a th:if="${session.userId == null}" href="/login" class="nav-cta" th:text="#{navbar.login}"></a>
+                <a th:if="${session.userId == null}" href="/register" class="nav-cta-secondary" th:text="#{register.title}"></a>
+                <a th:if="${session.userId != null}" href="/app" class="nav-cta" th:text="#{navbar.app}"></a>
+                <a th:if="${session.userId != null}" href="/outputs" class="nav-cta-secondary">📋 <span th:text="#{navbar.outputs}"></span></a>
+                <form th:if="${session.userId != null}" th:action="@{/logout}" method="post" class="d-inline">
+                    <button class="nav-cta-secondary" type="submit" th:text="#{navbar.logout}"></button>
+                </form>
+                <select class="form-select form-select-sm lang-switch" onchange="if(this.value)window.location.href='/language/switch?lang='+this.value+'&redirect=/contact'">
+                    <option value="" th:text="#{navbar.language}"></option>
+                    <option value="ar" th:text="#{lang.ar}"></option>
+                    <option value="en" th:text="#{lang.en}"></option>
+                    <option value="es" th:text="#{lang.es}"></option>
+                    <option value="es-MX" th:text="#{lang.es-MX}"></option>
+                    <option value="fr" th:text="#{lang.fr}"></option>
+                    <option value="de" th:text="#{lang.de}"></option>
+                    <option value="de-AT" th:text="#{lang.de-AT}"></option>
+                    <option value="it" th:text="#{lang.it}"></option>
+                    <option value="nl" th:text="#{lang.nl}"></option>
+                    <option value="pt" th:text="#{lang.pt}"></option>
+                    <option value="ru" th:text="#{lang.ru}"></option>
+                    <option value="uk" th:text="#{lang.uk}"></option>
+                    <option value="af" th:text="#{lang.af}"></option>
+                    <option value="zh" th:text="#{lang.zh}"></option>
+                    <option value="ja" th:text="#{lang.ja}"></option>
+                </select>
+            </div>
+        </div>
+    </nav>
+    <div class="auth-container-contact">
+        <div class="auth-card-contact">
+            <div class="auth-logo">
+                <span class="logo-icon">🧠</span>
+                <h1 th:text="#{home.brand}"></h1>
+            </div>
+            <h2 class="text-center mb-3" th:text="#{contact.title}"></h2>
+            <p class="contact-description" th:text="#{contact.description}"></p>
+
+    <div class="alert alert-error alert-hidden" id="errorAlert">⚠️ <span th:text="#{contact.error}"></span></div>
+    <div class="alert alert-success alert-hidden" id="successAlert">✅ <span th:text="#{contact.success}"></span></div>
+
+    <form th:action="@{/contact}" method="post">
+                <div class="form-group">
+                    <label th:text="#{contact.name}"></label>
+                    <input type="text" name="name" th:placeholder="#{contact.namePlaceholder}" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label th:text="#{contact.email}"></label>
+                    <input type="email" name="email" th:placeholder="#{contact.emailPlaceholder}" required>
+                </div>
+                <div class="form-group">
+                    <label th:text="#{contact.message}"></label>
+                    <textarea name="message" th:placeholder="#{contact.messagePlaceholder}" required></textarea>
+                </div>
+                <button type="submit" class="btn-auth" th:text="#{contact.submit}"></button>
+            </form>
+
+            <div class="auth-footer">
+                <a href="/" th:text="#{contact.home}"></a> · <a href="/app" th:text="#{contact.app}"></a>
+            </div>
+        </div>
+    </div>
+    <script src="/js/ui-audit.js" defer></script>
+</body>
+</html>

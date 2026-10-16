@@ -1,0 +1,63 @@
+# Environment variables (contains secrets - NEVER commit)
+.env
+
+# Build output
+target/
+*.class
+
+# IDE settings
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# JVM crash logs
+hs_err_*.log
+*.hprof
+
+# Bundled JDK (portable runtime — too large for git)
+jdk/
+
+# Application runtime output
+app-run*.log
+spring-boot-output.txt
+*.jar.original
+
+# Maven wrapper backup
+.mvn/wrapper/maven-wrapper.jar
+
+# Suspicious/random directories that should not be tracked
+$null/
+32GB/
+echo/
+path/
+"Directory created or exists"/
+
+# Maven distribution (bundled — re-downloadable)
+apache-maven-*/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Windows scripts
+*.bat
+mvnw.cmd
+
+# Docker artifacts
+Dockerfile
+
+# PDF image cache
+cache/
+
+# Extracted image logs
+extract.log
+
+# Local PostgreSQL instance
+pgsql/
+
+# Auto-generated project structure dump (noise)
+structure.md

@@ -1,3 +1,53 @@
-.env
+# Build artifacts
 target/
 *.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# External data (large files, not version controlled)
+external/
+storage/
+ui-screenshots/
+
+# Runtime data
+runtime-logs.json
+localhost.har
+
+# Backup files
+*.bak
+
+# Project profile (not for git)
+PROJECT_PROFILE.md

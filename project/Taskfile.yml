@@ -1,0 +1,166 @@
+version: '3'
+
+env:
+  PROJECT_ROOT: "/mnt/d/book-assistant-lite"
+  COMPOSE_FILE: "{{.PROJECT_ROOT}}/docker-compose.yml"
+
+tasks:
+  # Build all images
+  build:
+    desc: Build all Docker images
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" build
+
+  # Build specific service
+  build-app:
+    desc: Build Spring Boot app image
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" build app
+
+  build-pix2text:
+    desc: Build Pix2Text extraction service image
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" build pix2text
+
+  # Start services
+  start:
+    desc: Start all services (PostgreSQL, Pix2Text, Ollama, App)
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" up -d
+
+  start-postgres:
+    desc: Start PostgreSQL only
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" up -d postgres
+
+  start-pix2text:
+    desc: Start Pix2Text extraction service only
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" up -d pix2text
+
+  start-ollama:
+    desc: Start Ollama only
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" up -d ollama
+
+  start-app:
+    desc: Start Spring Boot app (depends on other services)
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" up -d app
+
+  # Stop services
+  stop:
+    desc: Stop all services
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" down
+
+  stop-postgres:
+    desc: Stop PostgreSQL
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" stop postgres
+
+  stop-pix2text:
+    desc: Stop Pix2Text extraction service
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" stop pix2text
+
+  stop-ollama:
+    desc: Stop Ollama
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" stop ollama
+
+  stop-app:
+    desc: Stop Spring Boot app
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" stop app
+
+  # Restart services
+  restart:
+    desc: Restart all services
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" restart
+
+  restart-postgres:
+    desc: Restart PostgreSQL
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" restart postgres
+
+  restart-pix2text:
+    desc: Restart Pix2Text extraction service
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" restart pix2text
+
+  restart-ollama:
+    desc: Restart Ollama
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" restart ollama
+
+  restart-app:
+    desc: Restart Spring Boot app
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" restart app
+
+  # Status
+  status:
+    desc: Show status of all services
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" ps
+
+  logs:
+    desc: Show logs for all services
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" logs -f
+
+  logs-postgres:
+    desc: Show PostgreSQL logs
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" logs -f postgres
+
+  logs-pix2text:
+    desc: Show Pix2Text extraction service logs
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" logs -f pix2text
+
+  logs-ollama:
+    desc: Show Ollama logs
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" logs -f ollama
+
+  logs-app:
+    desc: Show Spring Boot app logs
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" logs -f app
+
+  # Pull Ollama models
+  pull-models:
+    desc: Pull required Ollama models
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" exec ollama ollama pull phi3.5:latest
+      - docker compose -f "{{.COMPOSE_FILE}}" exec ollama ollama pull nomic-embed-text
+
+  # Clean up
+  clean:
+    desc: Stop and remove all containers, networks, and volumes
+    cmds:
+      - docker compose -f "{{.COMPOSE_FILE}}" down -v --remove-orphans
+
+  # Full setup: build, start, pull models
+  setup:
+    desc: Full project setup (build images, start services, pull models)
+    cmds:
+      - task: build
+      - task: start
+      - sleep 30
+      - task: pull-models
+
+  # Open project (alias for start)
+  open-project:
+    desc: Start all project services
+    cmds:
+      - task: start
+
+  # Close project (alias for stop)
+  close-project:
+    desc: Stop all project services
+    cmds:
+      - task: stop

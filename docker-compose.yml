@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: book-assistant-postgres
+    environment:
+      POSTGRES_DB: book_assistant
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./project/src/main/resources/schema-migration.sql:/docker-entrypoint-initdb.d/01-schema-migration.sql:ro
+      - ./project/src/main/resources/schema-telemetry.sql:/docker-entrypoint-initdb.d/02-schema-telemetry.sql:ro
+      - ./project/src/main/resources/schema-telemetry-triggers.sql:/docker-entrypoint-initdb.d/03-schema-telemetry-triggers.sql:ro
+      - ./project/src/main/resources/schema-ui-validation.sql:/docker-entrypoint-initdb.d/04-schema-ui-validation.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d book_assistant"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - book-assistant-network
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: book-assistant-ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "pidof ollama > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - book-assistant-network
+    restart: unless-stopped
+
+  pix2text:
+    build:
+      context: ./project
+      dockerfile: extraction-service/Dockerfile
+    container_name: book-assistant-pix2text
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+    volumes:
+      - ./project/external/cache:/app/cache:rw
+      - ./project/external/tmp:/app/tmp:rw
+      - ./project/storage/books:/app/storage/books:ro
+      - ./project/external/pdfs:/app/external/pdfs:ro
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - book-assistant-network
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./project
+      dockerfile: Dockerfile
+    container_name: book-assistant-app
+    environment:
+      - SERVER_PORT=8083
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - AI_BASE_URL=http://ollama:11434/api/generate
+      - AI_MODEL=llama3.2:3b
+      - AI_EMBEDDING_MODEL=nomic-embed-text
+      - AI_API_KEY=local-dummy-key
+      - AI_TIMEOUT_SECONDS=86400
+      - PIX2TEXT_URL=http://pix2text:8080
+      - PIX2TEXT_TIMEOUT=86400s
+      - SUMMARY_PAGES_MODE=aisummary
+      - EXTRACTION_MODE=model-only
+    volumes:
+      - ./project/external/cache:/app/cache:rw
+      - ./project/external/tmp:/app/tmp:rw
+      - ./project/storage/books:/app/storage/books:rw
+      - ./project/external/logs:/app/logs:rw
+      - ./project/external/pdfs:/app/external/pdfs:rw
+      - ./project/ui-screenshots:/app/ui-screenshots:rw
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - book-assistant-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  book-assistant-network:
+    driver: bridge

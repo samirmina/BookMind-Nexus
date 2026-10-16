@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" xmlns:th="http://www.thymeleaf.org"
+      th:lang="${langAttr}" th:dir="${dirAttr}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{accounts.title}"></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h2>👤 <span th:text="#{accounts.title}"></span></h2>
+                    <p class="text-muted small" th:text="#{accounts.currentAccount}"></p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm lang-switch" onchange="if(this.value)window.location.href='/language/switch?lang='+this.value+'&redirect=/accounts'">
+                        <option value="" th:text="#{navbar.language}"></option>
+                        <option value="ar" th:text="#{lang.ar}"></option>
+                        <option value="en" th:text="#{lang.en}"></option>
+                        <option value="es" th:text="#{lang.es}"></option>
+                        <option value="es-MX" th:text="#{lang.es-MX}"></option>
+                        <option value="fr" th:text="#{lang.fr}"></option>
+                        <option value="de" th:text="#{lang.de}"></option>
+                        <option value="de-AT" th:text="#{lang.de-AT}"></option>
+                        <option value="it" th:text="#{lang.it}"></option>
+                        <option value="nl" th:text="#{lang.nl}"></option>
+                        <option value="pt" th:text="#{lang.pt}"></option>
+                        <option value="ru" th:text="#{lang.ru}"></option>
+                        <option value="uk" th:text="#{lang.uk}"></option>
+                        <option value="af" th:text="#{lang.af}"></option>
+                        <option value="zh" th:text="#{lang.zh}"></option>
+                        <option value="ja" th:text="#{lang.ja}"></option>
+                    </select>
+                    <a th:href="@{/app}" class="btn btn-outline-nova btn-sm" th:text="#{accounts.backToApp}"></a>
+                </div>
+            </div>
+
+            <div th:if="${success != null}" class="alert alert-success" th:text="${success}"></div>
+            <div th:if="${error != null}" class="alert alert-danger" th:text="${error}"></div>
+
+            <div th:if="${isLoggedIn}" class="platform-card mb-3">
+                <h5 class="mb-1">📧 <span th:text="#{accounts.email}"></span></h5>
+                <p class="text-muted small mb-2" th:text="#{accounts.currentAccount}"></p>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge-primary mb-2 d-inline-block" th:text="${currentUserEmail}">user@example.com</span>
+                    <span class="text-muted small" th:text="#{accounts.id}"></span>: <span th:text="${currentUserId}">1</span>
+                </div>
+            </div>
+
+            <div class="platform-card mb-3">
+                <h5 class="mb-1">🔗 <span th:text="#{accounts.integration}"></span></h5>
+                <p class="text-muted small mb-3" th:text="#{accounts.notion.desc}"></p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="platform-card">
+                            <h5 class="mb-1" th:text="#{accounts.notion}"></h5>
+                            <p class="text-muted small mb-3" th:text="#{accounts.notion.desc}"></p>
+                             <div th:if="${notionAccounts.empty}">
+                                 <a th:href="@{/oauth2/authorize(platform='notion')}" class="btn btn-nova btn-sm" th:text="#{accounts.linkNotion}"></a>
+                             </div>
+                             <div th:each="account : ${notionAccounts}">
+                                 <div class="d-flex align-items-center gap-2">
+                                     <span class="badge-success mb-2 d-inline-block" th:text="#{accounts.connected}"></span>
+                                     <form th:action="@{/accounts/unlink}" method="post" class="d-inline">
+                                         <input type="hidden" name="platform" value="notion"/>
+                                         <button class="btn btn-outline-nova btn-sm" type="submit" th:text="#{accounts.unlink}"></button>
+                                     </form>
+                                 </div>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div th:if="${syncStatus != null}" class="platform-card mb-3">
+                <h5 class="mb-1">🔄 <span th:text="#{accounts.syncStatus}"></span></h5>
+                <p class="text-muted small mb-2" th:text="${syncStatus}"></p>
+                <div th:if="${syncCount != null}" class="text-muted small mb-2">
+                    <span th:text="#{accounts.syncedNotes}"></span> <span th:text="${syncCount}">0</span>
+                </div>
+                <form th:action="@{/accounts/sync}" method="post" class="d-inline">
+                    <button class="btn btn-nova btn-sm" type="submit" th:text="#{sync.now}"></button>
+                </form>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <form th:if="${isLoggedIn}" th:action="@{/logout}" method="post" class="d-inline">
+                    <button class="btn btn-outline-nova btn-sm" type="submit" th:text="#{accounts.logout}"></button>
+                </form>
+                <a th:href="@{/app}" class="btn btn-nova btn-sm" th:text="#{accounts.backToApp}"></a>
+                <a th:if="${!isLoggedIn}" th:href="@{/login}" class="btn btn-nova btn-sm" th:text="#{navbar.login}"></a>
+            </div>
+        </div>
+    </div>
+    <script src="/js/ui-audit.js" defer></script>
+</body>
+</html>
