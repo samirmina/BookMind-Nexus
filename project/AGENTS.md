@@ -64,3 +64,15 @@ Every task must be closed end-to-end before moving on. A feature is not "done" w
 - **Verification**: After making changes, verify they work. Run the app, check the logs, confirm the UI renders correctly. Never stop after the first green light.
 - **Communication**: Report what you changed, why you changed it, and how you verified it. Keep updates concise and technical.
 - **Safety**: Never expose secrets, keys, or tokens. Never commit unless explicitly asked. Track what was changed and why.
+
+## Current Project State (Reference)
+
+- **AI Model**: `llama3.2:3b` (Ollama), embedding: `nomic-embed-text`
+- **Default Extraction Mode**: `model-only` in Docker, `pix2text` in local WSL
+- **Database**: PostgreSQL 16 + pgvector via Docker Compose
+- **Ports**: App 8083, Postgres 5432, Ollama 11434, Pix2Text 8080
+- **WSL Path**: `/mnt/d/book-assistant-lite/project/`
+- **Docker Path**: `/app/` (inside containers)
+- **GitHub**: `https://github.com/samirmina/BookMind-Nexus`
+- **Task Runner**: go-task (`task` command), Taskfile.yml at project root
+- **Docker Compose**: `docker-compose.yml` at project root (`/mnt/d/book-assistant-lite/`)

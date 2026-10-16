@@ -135,7 +135,7 @@ tasks:
   pull-models:
     desc: Pull required Ollama models
     cmds:
-      - docker compose -f "{{.COMPOSE_FILE}}" exec ollama ollama pull phi3.5:latest
+      - docker compose -f "{{.COMPOSE_FILE}}" exec ollama ollama pull llama3.2:3b
       - docker compose -f "{{.COMPOSE_FILE}}" exec ollama ollama pull nomic-embed-text
 
   # Clean up

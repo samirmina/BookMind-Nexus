@@ -4,40 +4,52 @@
 
 - **Frontend**: Thymeleaf + JavaScript on Spring Boot 3.5 (Java 21), port 8083
 - **Backend**: Spring Boot layered architecture: Controller → Service → Repository → Entity
-- **Database**: PostgreSQL at `D:\book-assistant-lite\external\pgsql\data`, port 5432, database `book_assistant`
-- **Extraction Service**: Python FastAPI microservice (port 8080) wrapping Pix2Text only
-- **AI**: Ollama local API (port 11434) with configurable models
-- **Storage**: Local filesystem under `upload-dir`, `cache-dir`, `tmp`
+- **Database**: PostgreSQL 16 + pgvector (Docker service: `postgres`), port 5432, database `book_assistant`
+- **Extraction Service**: Python FastAPI microservice (port 8080) wrapping Pix2Text (optional, CUDA)
+- **AI**: Ollama local API (port 11434) with Llama 3.2:3b and nomic-embed-text
+- **Storage**: Local filesystem under cache/upload/tmp directories (WSL: `/mnt/d/book-assistant-lite/`, Docker: `/app/`)
+- **Container Orchestration**: Docker Compose with 4 services (postgres, ollama, pix2text, app)
 
-### PDF Processing Pipeline
+## PDF Processing Pipeline
 
 1. User uploads PDF → `UploadController` → `FileParserService`
 2. Upload path stores the raw PDF bytes via `BookStorageService`; no full-text extraction at upload time.
 3. When the user requests summary, QA, search, or analysis for a page range:
    - `PdfSliceService` slices the original PDF to the exact requested page range.
-   - The sliced PDF is sent to the extraction service (`/extract/pix2text`).
-   - The extraction service returns structured page chunks with LaTeX math notation.
+   - In `model-only` mode: sliced PDF text is extracted via PDFBox and fed directly to the LLM.
+   - In `pix2text` mode: the sliced PDF is sent to the extraction service (`/extract/pix2text`), which returns structured page chunks with LaTeX math notation.
    - `OnDemandExtractionService` orchestrates slicing → extraction → sanitization.
 4. Extracted text is passed to the AI pipeline. No in-memory RAG chunk splitters are used for page-range requests.
 
-### Extraction Modes
+## Extraction Modes
 
-- **pix2text** (default): `/extract/pix2text` — OCR + math notation via Pix2Text
-- **text-layer** (legacy): PDFBox direct text extraction, no OCR
-- **model-only**: Native PDFBox text extraction fed directly to the LLM, bypassing Pix2Text entirely. Best for digital/OCR-ready PDFs where maximum speed is needed and the LLM can process raw text directly.
+| Mode | Description | Default In |
+|------|-------------|------------|
+| **model-only** | Native PDFBox text extraction fed directly to the LLM, bypassing Pix2Text entirely. Fastest, no OCR, no math correction. | Docker |
+| **pix2text** | OCR + math notation via Pix2Text service. Best for scanned books and heavy math. | Local (WSL) |
+| **text-layer** (legacy) | PDFBox direct text extraction, no OCR. Fastest, no LaTeX math. | Optional |
 
 **Note:** Marker extraction has been removed. The Python extraction service now processes only Pix2Text requests.
 
 ## Extraction Pipeline
 
-### Pix2Text (Primary)
+### Model-Only (Primary)
+
+- Native PDFBox text extraction fed directly to the LLM
+- Bypasses Pix2Text entirely for maximum speed
+- No OCR, no math correction, no empty-page skipping
+- Raw text is passed directly to `llama3.2:3b`
+- Best for digital/OCR-ready PDFs where the model can process raw text directly
+- Configure via `app.extraction.mode=model-only`
+
+### Pix2Text (OCR + Math)
 
 - Endpoint: `extraction-service/main.py` `/extract/pix2text`
 - Models: DocLayout-YOLO (`mfd-1.5`), cnocr OCR, LatexOCR (`mfr-1.5`)
 - Output: Structured text with `<math>` tags for LaTeX
 - GPU: `Pix2Text.from_config(device='cuda')`
 - Input: Page-range-sliced PDF from `PdfSliceService`
-- Default mode: `pix2text`; runtime override no longer applicable since Marker is removed
+- Configure via `app.extraction.mode=pix2text`
 
 ### PDFBox / text-layer (Legacy)
 
@@ -45,33 +57,12 @@
 - Fastest, no OCR, no LaTeX math
 - Use only for simple digital PDFs without equations
 
-### Model Only (New)
-
-- Native PDFBox text extraction fed directly to the LLM
-- Bypasses Pix2Text entirely for maximum speed
-- No OCR, no math correction, no empty-page skipping
-- Raw text is passed directly to `qwen2.5-coder:14b`
-- Best for digital/OCR-ready PDFs where the model can process raw text directly
-- Configure via `app.extraction.mode=model-only`
-
-## Pix2Text Configuration & Optimization
-
-- Models: `mfd-1.5` and `mfr-1.5` (already cached locally)
-- `resized_shape`: `1280` for maximum equation detection quality
-- `mfr_batch_size`: `8` on GPU for better throughput
-- MFD confidence threshold: `0.25` (already the default)
-- Optimized for RTX 3070 with GPU acceleration
-
-**Implementation:**
-- Initialize with `Pix2Text.from_config(device='cuda')`
-- Pass `resized_shape=1280` and `mfr_batch_size=8` to every call of `recognize_page_single_call()`. These parameters are passed internally by the wrapper.
-
 ## Chunking Strategy
 
 ### PDF Range Slicing (Current Default)
 
 - `PdfSliceService` slices the original PDF byte array to the exact requested page range (`startPage`–`endPage`).
-- The sliced PDF is sent directly to the Pix2Text extraction service.
+- The sliced PDF is sent directly to the extraction service (or text extracted via PDFBox in model-only mode).
 - No in-memory RAG chunk splitters or text-chunking mechanisms are used for page-range requests.
 - This preserves page boundaries, layout, and math context intact.
 
@@ -85,9 +76,9 @@
 
 ### Models
 
-- **Default**: `qwen2.5-coder:14b`
+- **Default**: `llama3.2:3b`
 - **Embedding**: `nomic-embed-text`
-- **Endpoint**: `http://localhost:11434/api/generate`
+- **Endpoint**: `http://localhost:11434/api/generate` (local) or `http://ollama:11434/api/generate` (Docker)
 - Configurable via `AI_MODEL`, `AI_EMBEDDING_MODEL`
 
 ### Feature Classification
@@ -146,156 +137,52 @@ Every prompt is an **extraction prompt**, not a generation prompt. The model is 
 
 **System prompts enforce strict output constraints (NO COMMENTARY, NO PARAPHRASING) before context injection.**
 
-> **Note:** MathPatchService, which previously stripped `[PAGE:X]` grounding tags from LLM responses, is temporarily disconnected while the model is validated with `qwen2.5-coder:14b`.
+## Docker Compose Services
 
-**Summary prompt**:
-```
-CRITICAL RULES — APPLY TO EVERY LINE OF OUTPUT:
-1. NO COMMENTARY: Do NOT add any introductory phrases, explanations, or conversational filler.
-   FORBIDDEN: "It seems like...", "Here's a summary...", "Based on the text...", etc.
-2. NO PARAPHRASING: Copy EXACTLY word-for-word. Every sentence must match the source text.
-3. MATH PRESERVATION: Preserve ALL mathematical notation in its EXACT original form:
-   - Display math: \[...\] and $$...$$
-   - Inline math: \(...\)
-   - XML tags: <math>...</math>
-   Do NOT convert, simplify, or remove any mathematical notation.
-4. NO HTML IN MATH: Do NOT use HTML tags such as <sup>, <sub>, <em>, <strong>, <br> inside math.
-   Use LaTeX only: superscripts as ^{}, subscripts as _{}, bold as \mathbf{}, etc.
-5. PAGE CITATIONS: ONLY cite page numbers between Page X and Page Y. NEVER cite pages outside this range.
-6. COVERAGE: You MUST cover the FULL page range provided; do not skip pages.
-7. LANGUAGE: Keep the book's original language. Use the UI language for category labels only.
+| Service | Image | Port | Purpose |
+|---------|-------|------|---------|
+| postgres | `pgvector/pgvector:pg16` | 5432 | Database + pgvector extension |
+| ollama | `ollama/ollama:latest` | 11434 | AI model server (Llama 3.2:3b, nomic-embed-text) |
+| pix2text | Custom (CUDA 12.4) | 8080 | OCR + LaTeX math extraction (optional) |
+| app | Custom Spring Boot | 8083 | Main application |
 
-NOW COPY VERBATIM into these categories:
+### Volume Mounts
 
-Core Content: Copy verbatim sentences that express theories, principles, definitions,
-or conceptual frameworks. These are the foundational ideas the book is built on—
-the "what is" and "why it matters" parts.
+- `postgres_data` — PostgreSQL data persistence
+- `ollama_data` — Ollama model persistence
+- `./project/external/cache` → `/app/cache` — Shared cache
+- `./project/external/tmp` → `/app/tmp` — Upload temp files
+- `./project/storage/books` → `/app/storage/books` — Book storage
+- `./project/ui-screenshots` → `/app/ui-screenshots` — UI screenshots
 
-Key Insights: Copy verbatim sentences that express practical advice, actionable steps,
-methods, techniques, warnings, or counter-intuitive observations. These are the
-"how to" and "what to watch out for" parts—the actionable knowledge.
+## Task Commands (go-task)
 
-Notable Passages: Copy verbatim the most impactful quotes, memorable statements, or
-powerful assertions made by the author. These are the passages a reader would want to
-highlight, bookmark, or share—the "remember this" moments.
-```
-
-**Q&A extraction prompt**:
-```
-ABSOLUTE RULES:
-1. NO COMMENTARY: Zero conversational text. No "It seems...", "Here's...", "Based on...".
-2. NO PARAPHRASING: Every word must match the source text exactly.
-3. MATH PRESERVATION: Preserve ALL math notation exactly:
-   - \[...\] (display math)
-   - $$...$$ (display math)
-   - \(...\) (inline math)
-   - <math>...</math> (XML tags)
-   Do NOT convert, simplify, or remove any mathematical notation.
-4. NO HTML IN MATH: Do NOT use HTML tags such as <sup>, <sub>, <em>, <strong>, <br> inside math.
-   Use LaTeX only: superscripts as ^{}, subscripts as _{}, bold as \mathbf{}, etc.
-5. PAGE RANGES: Only cite pages within the provided range.
-6. LANGUAGE: Respond entirely in English. Do not mix languages.
-
-You are a verbatim passage extractor. You do NOT think, analyze, or summarize.
-You ONLY copy exact passages from the provided text.
-
-TASK: Copy verbatim the passages that directly answer the user's question.
-- Copy passages EXACTLY as written in the text
-- Only include content DIRECTLY relevant to the question
-- If nothing is relevant, respond with "No relevant content found."
-- Preserve the author's exact wording
-- When referencing content from a specific page, include the page number
-- Extract detailed, relevant passages with full context.
-```
-
-**Concept map prompt**:
-```
-Extract a concept map from the text ONLY:
-- List 5-10 core concepts with brief definitions
-- Describe relationships between concepts
-- Organize from general to specific
-- List key principles
-- Describe practical applications
-
-RULES:
-- ONLY include concepts explicitly mentioned in the text
-- Verify each concept label appears verbatim in the text
-- Do NOT invent or hallucinate concepts, nodes, or edges
-```
-
-## Post-Extraction Math Patching (Lazy Correction)
-
-### MathPatchService (Temporarily Disabled)
-
-- **Location**: `com.bookassistant.service.file.MathPatchService`
-- **Status**: Disconnected from controllers.
-- **Previous Purpose**: Post-processed LLM responses to remove grounding metadata tags (`[PAGE:X]`, `[PAGE:34,LINE:12]`) before display. Did not overwrite or replace LLM output with raw extraction content.
-- **Previous Trigger**: After `AiService.getAnswerFromAi()` returned, before response was sent to UI.
-- **Previous Flow**:
-  1. Receive LLM output
-  2. Strip `[PAGE:34]` and `[PAGE:34,LINE:12]` tags
-  3. Return pure LLM text
-
-**Removed Grounding Marker Contract:**
-
-The following instruction is no longer in system prompts:
-```
-GROUNDING REQUIRED: When summarizing or answering, you MUST append structural location tags to every major claim or equation block. Format required: [PAGE:34] or [PAGE:34,LINE:12].
-```
-
-## PDF Range Slicing Service
-
-### PdfSliceService
-
-- **Location**: `com.bookassistant.service.file.PdfSliceService` (new)
-- **Purpose**: Slices the original uploaded PDF to an exact page range using Apache PDFBox, producing a new self-contained PDF byte array.
-- **Trigger**: Before sending a PDF to the extraction service for summary, QA, search, or analysis.
-- **Flow**:
-  1. Load original PDF bytes from `BookStorageService`
-  2. Validate `startPage` and `endPage` against the PDF's total page count
-  3. Use PDFBox `PDDocument` + `PDFMergerUtility` or page-range extraction to create a new PDF containing only the requested pages
-  4. Return the sliced PDF byte array
-  5. `OnDemandExtractionService` sends the sliced PDF to `/extract/pix2text`
-
-**Benefits:**
-- Eliminates the need for in-memory text chunking and RAG chunk splitters for page-range requests
-- Preserves page boundaries, layout, and math context intact
-- Reduces extraction time and memory usage by processing only the requested pages
-
-### OnDemandExtractionService Refactor
-
-- **Old flow**: Load full PDF → extract all pages → split text into chunks → send text to AI
-- **New flow**: Load full PDF → slice to requested range → send sliced PDF to extraction service → return structured `BookData`
-- Marker dependency removed; only Pix2Text is used
+| Command | Description |
+|---------|-------------|
+| `task setup` | Build, start, pull models |
+| `task build` | Build all Docker images |
+| `task start` | Start all services |
+| `task start-app` | Start Spring Boot app |
+| `task start-ollama` | Start Ollama |
+| `task start-postgres` | Start PostgreSQL |
+| `task start-pix2text` | Start Pix2Text service |
+| `task stop` | Stop all services |
+| `task logs` | View all logs |
+| `task clean` | Remove containers and volumes |
+| `task pull-models` | Pull Ollama models |
 
 ## Common Failure Modes
 
 - **"Extraction service is not running"**: Start with `task start-pix2text`; verify `curl http://localhost:8080/health`
 - **Ollama error / "API key not configured"**: Start Ollama locally; set `OLLAMA_API_KEY` for remote endpoints
 - **Empty extraction**: PDF is scanned/image-based but `text-layer` mode selected, or PDF is corrupted
-- **GPU/CUDA mismatch**: Ensure `torch>=2.5.0` and `onnxruntime-gpu==1.29.0`; verify CUDA and cuDNN bin are on PATH
-- **White-label 503 / server freeze**: Extraction is blocking the request thread; must be async or delegated to a background service
-- **Prompt injection**: `sanitizeUserContent()` replaces injection patterns with `[REDACTED]`
+- **GPU/CUDA mismatch**: Ensure CUDA and cuDNN are available for Pix2Text container
 - **Context overflow**: Chunked QA activates automatically when `bookText.length() > DIRECT_QA_THRESHOLD`
-- **Timeout**: Retry logic built-in (2 retries, 500ms delay); timeouts neutralized for testing (86400s AI + extraction)
-- **Missing math notation / corrupted LaTeX**: Ensure prompts enforce strict output constraints (no HTML tags, no preamble); verify `sanitizeText()` is applied after extraction; MathPatchService is temporarily disabled — `qwen2.5-coder:14b` handles math via inline LaTeX from Pix2Text directly
-- **MathPatchService NPE / binding failure**: [RESOLVED] MathPatchService has been disconnected from all controllers; no longer invoked. LLM responses are returned directly without tag stripping.
-- **Pix2Text slow page processing**: One-page extraction can take 18–20s; `Pix2TextExtractionClient` connect timeout is set to 60s, read timeout defaults to `86400s` via `app.extraction.pix2text.timeout`
-- **Summary token-limit errors**: Summary chunks are truncated to `MAX_CHUNK_TOKENS = 4000` before calling the LLM; exception handlers append the underlying exception detail to the user-facing error message
-- **PDF slice out-of-bounds**: `PdfSliceService` validates page ranges against the original PDF page count; throws `IllegalArgumentException` for invalid ranges
+- **Timeout**: Retry logic built-in (2 retries); timeouts set to 86400s for AI + extraction
+- **Summary token-limit errors**: Summary chunks truncated before calling the LLM
+- **PDF slice out-of-bounds**: `PdfSliceService` validates page ranges against the original PDF page count
 
 ## Error Transparency & Diagnostics
-
-### Extraction Pipeline Logging
-
-**Pix2TextExtractionClient:**
-- Logs raw JSON response from Python service before parsing (2000-char preview + total length).
-- Each parsed page logs: page number, character count, and math-element detection flag.
-- Empty/null page text triggers WARNING with page index and surrounding raw JSON payload.
-
-**OnDemandExtractionService:**
-- Tracks empty pages skipped per extraction and logs summary with page numbers and counts.
-- Example log: `OnDemandExtractionService empty-page summary | emptyCount=3 | pages=[2,5,7] | range=1-10`
 
 ### AI Pipeline Logging
 
@@ -310,18 +197,8 @@ GROUNDING REQUIRED: When summarizing or answering, you MUST append structural lo
 **SummaryController / QaController:**
 - Skip reasons tracked per chunk/page in a `List<String>` passed to the UI model.
 - Empty text skips: `"Skipped pages 5-9: no extracted text from Pix2Text"`
-- AI error skips: `"Skipped pages 10-14: AI error — AI error: HTTP 500"`
+- AI error skips: `"Skipped pages 10-14: AI error — HTTP 500"`
 - UI renders detailed breakdown in warning alert alongside generic chunk count.
-
-### AI Endpoint Request Formats
-
-**SummaryController:**
-- Form endpoint: `POST /summary/pages` with `@RequestParam` parameters (`startPage`, `endPage`, `outputLanguage`, `chunkSize`).
-- JSON endpoint: `POST /summary/pages` with `Content-Type: application/json` and `@RequestBody PageSummaryRequest`.
-- `PageSummaryRequest` record: `Long bookId`, `int startPage`, `int endPage`, `String outputLanguage`, `String chunkSize`.
-- `chunkSize` values: `auto` (automatic), `model-only`/`modelonly` (full range as single chunk), or numeric string (fixed chunk size).
-- JSON responses return `ResponseEntity<Map<String, Object>>` with rendered summary HTML and metadata.
-- Error responses: `401` for unauthorized, `400` for invalid range/missing book, `500` for processing failures.
 
 ## Runtime Exception Instrumentation
 
@@ -331,13 +208,8 @@ To diagnose `java.lang.IllegalArgumentException: Illegal group reference`, the e
 
 **Mechanism:**
 - `@AfterThrowing` advice intercepts exceptions across all service and controller packages.
-- When the thrown exception is an `IllegalArgumentException` whose message contains `"Illegal group reference"`, the aspect logs:
-  - `className` and `methodName`
-  - `args` — the full input payload from `JoinPoint`
-  - `stackTrace` — the full stack trace via `StringWriter`
+- When the thrown exception is an `IllegalArgumentException` whose message contains `"Illegal group reference"`, the aspect logs className, methodName, args, and stackTrace.
 
 **Files involved:**
 - `com.bookassistant.aop.ServiceTelemetryAspect`
 - `com.bookassistant.aop.ControllerTelemetryAspect`
-
-**Purpose:** Capture the exact code path and input payload that triggers the regex failure, without changing application behavior.
