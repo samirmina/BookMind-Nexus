@@ -5,8 +5,6 @@
 - **Frontend**: Thymeleaf + JavaScript on Spring Boot 3.5 (Java 21), port 8083
 - **Backend**: Spring Boot layered architecture: Controller → Service → Repository → Entity
 - **Database**: PostgreSQL 16 + pgvector (Docker service: `postgres`), port 5432, database `book_assistant`
-- **Extraction Service**: Python FastAPI microservice (port 8080) wrapping Pix2Text (optional, CUDA)
-- **AI**: Ollama local API (port 11434) with Llama 3.2:3b and nomic-embed-text
 - **Storage**: Local filesystem under cache/upload/tmp directories (WSL: `/mnt/d/book-assistant-lite/`, Docker: `/app/`)
 - **Container Orchestration**: Docker Compose with 4 services (postgres, ollama, pix2text, app)
 
@@ -150,10 +148,10 @@ Every prompt is an **extraction prompt**, not a generation prompt. The model is 
 
 - `postgres_data` — PostgreSQL data persistence
 - `ollama_data` — Ollama model persistence
-- `./project/external/cache` → `/app/cache` — Shared cache
-- `./project/external/tmp` → `/app/tmp` — Upload temp files
-- `./project/storage/books` → `/app/storage/books` — Book storage
-- `./project/ui-screenshots` → `/app/ui-screenshots` — UI screenshots
+- `./external/cache` → `/app/cache` — Shared cache
+      - `./external/tmp` → `/app/tmp` — Upload temp files
+      - `./storage/books` → `/app/storage/books` — Book storage
+      - `./ui-screenshots` → `/app/ui-screenshots` — UI screenshots
 
 ## Task Commands (go-task)
 

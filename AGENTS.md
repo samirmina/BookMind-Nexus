@@ -71,7 +71,7 @@ Every task must be closed end-to-end before moving on. A feature is not "done" w
 - **Default Extraction Mode**: `model-only` in Docker, `pix2text` in local WSL
 - **Database**: PostgreSQL 16 + pgvector via Docker Compose
 - **Ports**: App 8083, Postgres 5432, Ollama 11434, Pix2Text 8080
-- **WSL Path**: `/mnt/d/book-assistant-lite/project/`
+- **WSL Path**: `/mnt/d/book-assistant-lite/`
 - **Docker Path**: `/app/` (inside containers)
 - **GitHub**: `https://github.com/samirmina/BookMind-Nexus`
 - **Task Runner**: go-task (`task` command), Taskfile.yml at project root
