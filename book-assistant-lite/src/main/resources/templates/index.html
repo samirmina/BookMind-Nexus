@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" xmlns:th="http://www.thymeleaf.org"
+      th:lang="${langAttr}" th:dir="${dirAttr}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{app.title}"></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/styles.css}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+</head>
+<body>
+    <!-- Header / Navbar -->
+    <header class="sticky-header">
+        <div class="container">
+            <nav class="navbar navbar-expand-lg navbar-dark py-2">
+                <a class="navbar-brand" th:href="@{/}">
+                    <span class="logo-icon">🧠</span>
+                    <span>BookMind Nexus</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                    <div class="collapse navbar-collapse" id="mainNav">
+                        <ul class="navbar-nav me-auto mb-2 mb-lg-0 nav-pills">
+                            <li class="nav-item"><button class="nav-link active" onclick="switchOuterTab(this, 'ask')"><span th:text="#{app.ask}"></span></button></li>
+                            <li class="nav-item"><button class="nav-link" onclick="switchOuterTab(this, 'insights')"><span th:text="#{app.insights}"></span></button></li>
+                            <li class="nav-item"><button class="nav-link" onclick="switchOuterTab(this, 'study')"><span th:text="#{app.lab}"></span></button></li>
+                            <li class="nav-item"><button class="nav-link" onclick="switchOuterTab(this, 'sync')"><span th:text="#{app.sync}"></span></button></li>
+                            <li class="nav-item"><button class="nav-link" onclick="switchOuterTab(this, 'responses')"><span>Responses</span></button></li>
+                        </ul>
+                    <div class="d-flex align-items-center gap-2">
+                        <span th:if="${isLoggedIn}" class="text-light small">
+                            <span th:text="#{navbar.welcome}"></span> <span th:text="${currentUserEmail}">user</span>
+                        </span>
+                        <a th:href="@{/accounts}" class="btn btn-outline-nova btn-sm" th:text="#{navbar.accounts}"></a>
+                        <a th:href="@{/outputs}" class="btn btn-outline-nova btn-sm" th:text="#{navbar.outputs}"></a>
+                        <form th:if="${isLoggedIn}" th:action="@{/logout}" method="post" class="d-inline">
+                            <button class="nav-cta-secondary" type="submit" th:text="#{navbar.logout}"></button>
+                        </form>
+                        <a th:if="${!isLoggedIn}" th:href="@{/login}" class="btn btn-nova btn-sm" th:text="#{navbar.login}"></a>
+                        <select class="form-select form-select-sm lang-switch" onchange="if(this.value)window.location.href='/language/switch?lang='+this.value+'&redirect=/app'">
+                            <option value="" th:text="#{navbar.language}"></option>
+                            <option value="ar" th:text="#{lang.ar}"></option>
+                            <option value="en" th:text="#{lang.en}"></option>
+                            <option value="es" th:text="#{lang.es}"></option>
+                            <option value="es-MX" th:text="#{lang.es-MX}"></option>
+                            <option value="fr" th:text="#{lang.fr}"></option>
+                            <option value="de" th:text="#{lang.de}"></option>
+                            <option value="de-AT" th:text="#{lang.de-AT}"></option>
+                            <option value="it" th:text="#{lang.it}"></option>
+                            <option value="nl" th:text="#{lang.nl}"></option>
+                            <option value="pt" th:text="#{lang.pt}"></option>
+                            <option value="ru" th:text="#{lang.ru}"></option>
+                            <option value="uk" th:text="#{lang.uk}"></option>
+                            <option value="af" th:text="#{lang.af}"></option>
+                            <option value="zh" th:text="#{lang.zh}"></option>
+                            <option value="ja" th:text="#{lang.ja}"></option>
+                        </select>
+                        <select id="extractionModeSelect" class="form-select form-select-sm lang-switch" onchange="updateExtractionMode(this.value)">
+                            <option value="" th:text="#{navbar.language}"></option>
+                            <option value="pix2text">Pix2Text</option>
+                            <option value="text-layer">PDFBox Text</option>
+                            <option value="model-only" th:text="#{extraction.mode.model.only}">Model Only</option>
+                        </select>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container py-4">
+        <div th:if="${success != null}" class="alert alert-success" th:text="${success}"></div>
+        <div th:if="${error != null}" class="alert alert-danger" th:text="${error}"></div>
+
+        <!-- BOOK UPLOAD -->
+        <section class="section-card page-section" id="source">
+            <div class="section-title"><span>📥</span> <span th:text="#{app.gallery.title}"></span></div>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="upload-zone">
+                    <div class="mb-2 upload-icon">📄</div>
+                    <h5 class="mb-1" th:text="#{app.upload.title}"></h5>
+                    <p class="text-muted small mb-3" th:text="#{app.upload.desc}"></p>
+                    <div class="input-group mx-auto input-group-constrained">
+                        <input type="file" class="form-control" id="uploadFile" accept=".pdf" required>
+                        <button class="btn btn-nova" type="submit" th:text="#{app.upload.submit}" id="uploadSubmitBtn"></button>
+                    </div>
+                    <div id="uploadProgress" class="mt-3 upload-progress">
+                        <div class="progress progress-custom">
+                            <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div id="uploadProgressText" class="small text-muted mt-1"></div>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- ASK -->
+        <section class="section-card page-section" id="ask">
+            <div class="section-title"><span>💬</span> <span th:text="#{app.ask}"></span></div>
+            <form th:action="@{/qa}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('ask-loading')">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" name="question" th:placeholder="#{app.ask.placeholder}" required>
+                    <button class="btn btn-nova" type="submit" th:text="#{app.ask.submit}"></button>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="ask-cross" name="crossPlatform" value="true">
+                    <label class="form-check-label" for="ask-cross" th:text="#{app.ask.crossPlatform}"></label>
+                </div>
+            </form>
+            <div th:if="${crossPlatformEnabled}" class="mt-2 cross-platform-status">
+                <span th:if="${hasLinkedAccount != null && hasLinkedAccount}" class="status-dot connected">●</span>
+                <span th:if="${hasLinkedAccount == null || !hasLinkedAccount}" class="status-dot disconnected">●</span>
+                <span th:if="${hasLinkedAccount != null && hasLinkedAccount}"> Notion linked</span>
+                <span th:if="${hasLinkedAccount == null || !hasLinkedAccount}"> Notion not linked</span>
+                <span th:if="${hasLinkedAccount != null && hasLinkedAccount && externalNotesCount > 0}"> — <span th:text="${externalNotesCount}">0</span> notes loaded</span>
+                <span th:if="${hasLinkedAccount != null && hasLinkedAccount && externalNotesCount == 0}"> — no notes synced yet (use accounts page to sync)</span>
+            </div>
+            <div class="loading-overlay" id="ask-loading">
+                <div class="spinner"></div>
+                <p class="mt-2" th:text="#{app.ask.loading}"></p>
+            </div>
+            <div class="gallery-grid">
+                <div th:each="img : ${cacheImages}" class="gallery-item">
+                    <a th:href="@{'/cache/' + ${cacheBookName} + '/images/' + ${img.file}}" target="_blank">
+                        <img th:src="@{'/cache/' + ${cacheBookName} + '/images/' + ${img.file}}" th:alt="'Page ' + ${img.page}" class="gallery-thumb">
+                    </a>
+                    <span class="gallery-label" th:text="#{app.gallery.page} + ' ' + ${img.page}"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- INSIGHTS -->
+        <section class="section-card page-section" id="insights">
+            <div class="section-title"><span>📊</span> <span th:text="#{app.insights.title}"></span></div>
+            <div class="tab-nav">
+                <button class="btn btn-outline-nova btn-sm active" onclick="switchTab(this, 'insight-summary')" th:text="#{app.insights.summary}"></button>
+                <button class="btn btn-outline-nova btn-sm" onclick="switchTab(this, 'insight-reality')" th:text="#{app.insights.realism}"></button>
+                <button class="btn btn-outline-nova btn-sm" onclick="switchTab(this, 'insight-concept')" th:text="#{app.insights.conceptMap}"></button>
+                <button class="btn btn-outline-nova btn-sm" onclick="switchTab(this, 'insight-risk')" th:text="#{app.insights.riskAlerts}"></button>
+            </div>
+
+            <div id="insight-summary" class="insight-panel">
+                <div class="row g-2">
+                    <div class="col-auto">
+                        <form th:action="@{/summary/general}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('summary-loading')">
+                            <button class="btn btn-nova btn-sm" th:text="#{app.insights.summaryGeneral}"></button>
+                        </form>
+                    </div>
+                    <div class="col-auto">
+                        <div class="page-range-container">
+                            <label class="form-label small text-muted mb-1" th:text="#{app.insights.pageRange}">Target Page Range:</label>
+                                <form th:action="@{/summary/pages}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('pages-loading')" class="d-flex gap-1">
+                                <input type="number" class="page-range-input" name="startPage" th:placeholder="#{app.gallery.page}" required>
+                                <input type="number" class="page-range-input" name="endPage" th:placeholder="#{app.gallery.of}" required>
+                                <select class="form-select form-select-sm chunk-size-select" name="chunkSize">
+                                    <option value="auto" th:text="#{app.insights.chunkAuto}">Auto</option>
+                                    <option value="3">3 pages</option>
+                                    <option value="5" selected>5 pages</option>
+                                    <option value="10">10 pages</option>
+                                    <option value="20">20 pages</option>
+                                </select>
+                                <button class="btn btn-outline-nova btn-sm" type="submit" th:text="#{app.insights.summaryPage}"></button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="loading-overlay" id="summary-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.summary}"></p></div>
+                <div class="loading-overlay" id="pages-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.summary}"></p></div>
+            </div>
+
+            <div id="insight-reality" class="insight-panel">
+                <div class="page-range-container">
+                    <label class="form-label small text-muted mb-1" th:text="#{app.insights.pageRange}">Target Page Range:</label>
+                    <form th:action="@{/reality-check}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('reality-loading')" class="g-2 align-items-end">
+                        <div class="col-auto"><input type="number" class="page-range-input" name="startPage" th:placeholder="#{app.gallery.page}" required></div>
+                        <div class="col-auto"><input type="number" class="page-range-input" name="endPage" th:placeholder="#{app.gallery.of}" required></div>
+                        <div class="col-auto"><button class="btn btn-nova btn-sm" type="submit" th:text="#{app.insights.analysis}"></button></div>
+                    </form>
+                </div>
+                <div class="loading-overlay" id="reality-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.analysis}"></p></div>
+            </div>
+
+            <div id="insight-concept" class="insight-panel">
+                <div class="page-range-container">
+                    <label class="form-label small text-muted mb-1" th:text="#{app.insights.pageRange}">Target Page Range:</label>
+                    <form th:action="@{/concept-map}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('concept-loading')" class="g-2 align-items-end">
+                        <div class="col-auto"><input type="number" class="page-range-input" name="startPage" th:placeholder="#{app.gallery.page}" required></div>
+                        <div class="col-auto"><input type="number" class="page-range-input" name="endPage" th:placeholder="#{app.gallery.of}" required></div>
+                        <div class="col-auto"><button class="btn btn-nova btn-sm" type="submit" th:text="#{app.insights.conceptMap}"></button></div>
+                    </form>
+                </div>
+                <div class="loading-overlay" id="concept-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.plan}"></p></div>
+                <div id="concept-graph" th:attr="data-json=${conceptMapJson}"></div>
+            </div>
+
+            <div id="insight-risk" class="insight-panel">
+                <form th:action="@{/risk-flags}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('risk-loading')" class="g-2 align-items-end">
+                    <div class="page-range-container">
+                        <label class="form-label small text-muted mb-1" th:text="#{app.insights.pageRange}">Target Page Range:</label>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-auto"><input type="number" class="page-range-input" name="startPage" th:placeholder="#{app.gallery.page}" required></div>
+                            <div class="col-auto"><input type="number" class="page-range-input" name="endPage" th:placeholder="#{app.gallery.of}" required></div>
+                            <div class="col-auto"><button class="btn btn-nova btn-sm" type="submit" th:text="#{app.insights.riskAlerts}"></button></div>
+                        </div>
+                    </div>
+                </form>
+                <div class="loading-overlay" id="risk-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.insights.loading.analysis}"></p></div>
+            </div>
+
+            <!-- Shared cache gallery for insights -->
+            <div class="gallery-grid">
+                <div th:each="img : ${cacheImages}" class="gallery-item">
+                    <a th:href="@{'/cache/' + ${cacheBookName} + '/images/' + ${img.file}}" target="_blank">
+                        <img th:src="@{'/cache/' + ${cacheBookName} + '/images/' + ${img.file}}" th:alt="'Page ' + ${img.page}" class="gallery-thumb">
+                    </a>
+                    <span class="gallery-label" th:text="#{app.gallery.page} + ' ' + ${img.page}"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- STUDY -->
+        <section class="section-card page-section" id="study">
+            <div class="section-title"><span>🧪</span> <span th:text="#{app.lab.title}"></span></div>
+            <div class="tab-nav">
+                <button class="btn btn-outline-nova btn-sm active" onclick="switchTab(this, 'study-comprehension')" th:text="#{app.lab.comprehension}"></button>
+                <button class="btn btn-outline-nova btn-sm" onclick="switchTab(this, 'study-search')" th:text="#{app.lab.search}"></button>
+                <button class="btn btn-outline-nova btn-sm" onclick="switchTab(this, 'study-plan')" th:text="#{app.lab.planning}"></button>
+                <button class="btn btn-outline-nova btn-sm" onclick="switchTab(this, 'study-learning')" th:text="#{app.lab.plan}"></button>
+            </div>
+
+            <div id="study-comprehension" class="insight-panel">
+                <div class="page-range-container">
+                    <label class="form-label small text-muted mb-1" th:text="#{app.lab.pageRange}">Target Page Range:</label>
+                        <form th:action="@{/comprehension}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('comp-loading')" class="g-2 align-items-end">
+                        <input type="hidden" name="outputLanguage" th:value="${uiLanguage}">
+                        <div class="col-auto"><input type="number" class="page-range-input" name="startPage" th:placeholder="#{app.gallery.page}" required></div>
+                        <div class="col-auto"><input type="number" class="page-range-input" name="endPage" th:placeholder="#{app.gallery.of}" required></div>
+                        <div class="col-auto"><button class="btn btn-nova btn-sm" type="submit" th:text="#{app.lab.comprehensionTest}"></button></div>
+                    </form>
+                </div>
+                <div class="loading-overlay" id="comp-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.plan}"></p></div>
+            </div>
+
+            <div id="study-search" class="insight-panel">
+                <form th:action="@{/semantic-search}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('search-loading')">
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" name="query" th:placeholder="#{app.lab.search}" required>
+                        <button class="btn btn-nova" type="submit" th:text="#{app.lab.search}"></button>
+                    </div>
+                </form>
+                <div class="loading-overlay" id="search-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.search}"></p></div>
+
+            </div>
+            <div id="study-plan" class="insight-panel">
+                <div class="page-range-container">
+                    <label class="form-label small text-muted mb-1" th:text="#{app.lab.pageRange}">Target Page Range:</label>
+                        <form th:action="@{/action-plan}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('plan-loading')" class="g-2 align-items-end">
+                        <div class="col-auto"><input type="number" class="page-range-input" name="startPage" th:placeholder="#{app.gallery.page}" required></div>
+                        <div class="col-auto"><input type="number" class="page-range-input" name="endPage" th:placeholder="#{app.gallery.of}" required></div>
+                        <div class="col-auto"><button class="btn btn-nova btn-sm" type="submit" th:text="#{app.lab.planning}"></button></div>
+                    </form>
+                </div>
+                <div class="loading-overlay" id="plan-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.plan}"></p></div>
+            </div>
+
+            <div id="study-learning" class="insight-panel">
+                <form th:action="@{/learning-path}" method="post" onsubmit="sessionStorage.setItem('bookmindJustSubmitted','true'); return showLoading('learning-loading')">
+                    <p class="small text-muted mb-2" th:text="#{app.sync.linkAccounts}"></p>
+                    <button class="btn btn-nova btn-sm" type="submit" th:text="#{app.lab.plan}"></button>
+                </form>
+                <div class="loading-overlay" id="learning-loading"><div class="spinner"></div><p class="mt-2" th:text="#{app.lab.loading.plan}"></p></div>
+            </div>
+        </section>
+
+        <!-- SYNC -->
+        <section class="section-card page-section" id="sync">
+            <div class="section-title"><span>🔗</span> <span th:text="#{app.sync.title}"></span></div>
+            <div class="tab-nav">
+                <button class="btn btn-outline-nova btn-sm active" onclick="switchTab(this, 'sync-accounts')" th:text="#{app.sync.accounts}"></button>
+                <button class="btn btn-outline-nova btn-sm" onclick="switchTab(this, 'sync-status')" th:text="#{app.sync.status}"></button>
+            </div>
+            <div id="sync-accounts" class="insight-panel">
+                <p class="small text-muted" th:text="#{app.sync.linkAccounts}"></p>
+                <div class="row g-2 mt-2">
+                    <div class="col-md-6">
+                        <div class="section-card mb-2">
+                            <h6 class="mb-1" th:text="#{app.sync.notion}"></h6>
+                            <p class="small text-muted" th:text="#{app.sync.notion.desc}"></p>
+                            <a th:href="@{/oauth2/authorize(platform='notion')}" class="btn btn-nova btn-sm" th:text="#{app.sync.linkNotion}"></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="sync-status" class="insight-panel">
+                <div th:if="${hasLinkedAccount != null && hasLinkedAccount}">
+                    <p class="small text-muted" th:text="#{app.sync.status.configured}"></p>
+                    <p class="small text-muted" th:text="#{accounts.syncedNotes}"></p>
+                    <span class="badge-nova" th:text="${appSyncNoteCount != null ? appSyncNoteCount : 0}">0</span>
+                </div>
+                <div th:if="${hasLinkedAccount == null || !hasLinkedAccount}">
+                    <p class="small text-muted" th:text="#{app.sync.status.pending}"></p>
+                    <p class="small text-muted" th:text="#{app.sync.linkAccounts}"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESPONSES -->
+        <section class="section-card page-section responses-section" id="responses">
+            <div class="section-title"><span>✨</span> <span>AI Responses</span></div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.qa}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${qa}" th:attr="dir=${qaDirection}?:${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${qaLanguage}?:${bookLanguage}" th:style="${qaInlineStyle}?:'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.summaryGeneral}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${summaryGeneral}" th:attr="dir=${summaryGeneralDirection}?:${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${summaryGeneralLanguage}?:${bookLanguage}" th:style="${summaryGeneralInlineStyle}?:'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.summaryPages}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${summaryPages}" th:attr="dir=${summaryPagesDirection}?:${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${summaryPagesLanguage}?:${bookLanguage}" th:style="${summaryPagesInlineStyle}?:'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                    <div th:if="${summaryPagesSkippedChunks != null && summaryPagesSkippedChunks > 0}" class="alert alert-skipped mt-2">
+                        <span th:text="#{summary.chunks.skipped(${summaryPagesSkippedChunks}, ${summaryPagesTotalChunks})}"></span>
+                        <div th:if="${summaryPagesSkipReasons != null && !summaryPagesSkipReasons.isEmpty()}" class="alert-skipped-details">
+                            <strong th:text="#{summary.detailed.skip.header}"></strong>
+                            <ul>
+                                <li th:each="reason : ${summaryPagesSkipReasons}" th:text="${reason}"></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.realityCheck}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${realityCheck}" th:attr="dir=${realityCheckDirection}?:${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${realityCheckLanguage}?:${bookLanguage}" th:style="${realityCheckInlineStyle}?:'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.conceptMap}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${conceptMap}" th:attr="dir=${conceptMapDirection}?:${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${conceptMapLanguage}?:${bookLanguage}" th:style="${conceptMapInlineStyle}?:'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.riskFlags}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${riskFlags}" th:attr="dir=${riskFlagsDirection}?:${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${riskFlagsLanguage}?:${bookLanguage}" th:style="${riskFlagsInlineStyle}?:'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.comprehension}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${comprehension}" th:attr="dir=${comprehensionDirection}?:${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${comprehensionLanguage}?:${bookLanguage}" th:style="${comprehensionInlineStyle}?:'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.search}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${semanticSearch}"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.actionPlan}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${actionPlan}" th:attr="dir=${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${bookLanguage}" th:style="'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+            <div class="response-section">
+                <div class="response-section-header">
+                    <span th:text="#{response.learningPath}"></span>
+                </div>
+                <div class="ai-response-wrapper">
+                    <div class="response-box" th:utext="${learningPath}" th:attr="dir=${bookLanguage == 'ar' ? 'rtl' : 'ltr'},lang=${bookLanguage}" th:style="'direction: ' + (${bookLanguage == 'ar' ? 'rtl' : 'ltr'}) + '; text-align: ' + (${bookLanguage == 'ar' ? 'right' : 'left'}) + ';'"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer-custom">
+        <p class="mb-0">🧠 <span th:text="#{home.brand}"></span> — <span th:text="#{home.footer.powered}"></span></p>
+        <p class="mb-0"><a href="/" th:text="#{navbar.home}"></a> · <a href="/about" th:text="#{navbar.about}"></a> · <a href="/contact" th:text="#{navbar.contact}"></a></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/collapsible.js"></script>
+    <script>
+        function showLoading(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('active');
+            try { sessionStorage.setItem('bookmindLastLoading', id); } catch(e) {}
+            return true;
+        }
+        function switchTab(btn, panelId) {
+            var parent = btn.closest('.tab-nav').parentElement;
+            parent.querySelectorAll('.insight-panel').forEach(function(p){ p.style.display='none'; });
+            document.getElementById(panelId).style.display='block';
+            parent.querySelectorAll('.tab-nav .btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var panels = parent.querySelectorAll('.insight-panel');
+            var sectionKey = panels.length > 0 ? panels[0].id.split('-')[0] : 'unknown';
+            var saved = {};
+            try { saved = JSON.parse(sessionStorage.getItem('bookmindTabs') || '{}'); } catch(e) {}
+            saved[sectionKey] = panelId;
+            sessionStorage.setItem('bookmindTabs', JSON.stringify(saved));
+        }
+        function switchOuterTab(btn, sectionId) {
+            var sections = ['ask', 'insights', 'study', 'sync', 'responses'];
+            sections.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.display = (id === sectionId) ? 'block' : 'none';
+            });
+            var navButtons = document.querySelectorAll('.nav-pills .nav-link');
+            navButtons.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            try { sessionStorage.setItem('bookmindOuterTab', sectionId); } catch(e) {}
+        }
+        window.addEventListener('DOMContentLoaded', function() {
+            var saved = {};
+            try { saved = JSON.parse(sessionStorage.getItem('bookmindTabs') || '{}'); } catch(e) {}
+            Object.keys(saved).forEach(function(sectionKey) {
+                var panelId = saved[sectionKey];
+                var panel = document.getElementById(panelId);
+                if (panel) {
+                    var parent = panel.parentElement;
+                    var btns = parent.querySelectorAll('.tab-nav .btn');
+                    for (var i = 0; i < btns.length; i++) {
+                        if (btns[i].getAttribute('onclick').indexOf("'" + panelId + "'") !== -1) {
+                            switchTab(btns[i], panelId);
+                            break;
+                        }
+                    }
+                }
+            });
+            var sections = ['ask', 'insights', 'study', 'sync', 'responses'];
+            var savedOuterTab = '';
+            try { savedOuterTab = sessionStorage.getItem('bookmindOuterTab') || ''; } catch(e) {}
+            var defaultSection = (savedOuterTab && sections.indexOf(savedOuterTab) !== -1) ? savedOuterTab : 'ask';
+            sections.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.display = (id === defaultSection) ? 'block' : 'none';
+            });
+            var navButtons = document.querySelectorAll('.nav-pills .nav-link');
+            navButtons.forEach(function(b) { b.classList.remove('active'); });
+            var defaultBtn = document.querySelector('.nav-pills .nav-link[onclick*="' + defaultSection + '"]');
+            if (defaultBtn) defaultBtn.classList.add('active');
+            document.querySelectorAll('.collapsible-section').forEach(function(section) {
+                var responseBox = section.querySelector('.response-box');
+                if (responseBox && responseBox.textContent.trim() !== '') {
+                    section.classList.add('has-content');
+                }
+            });
+            var justSubmitted = '';
+            try { justSubmitted = sessionStorage.getItem('bookmindJustSubmitted') || ''; } catch(e) {}
+            if (justSubmitted === 'true') {
+                try { sessionStorage.removeItem('bookmindJustSubmitted'); } catch(e) {}
+                var responsesBtn = document.querySelector('.nav-pills .nav-link[onclick*="responses"]');
+                if (responsesBtn) switchOuterTab(responsesBtn, 'responses');
+            }
+            var responseMapping = {
+                'ask-loading': 0,
+                'summary-loading': 1,
+                'pages-loading': 2,
+                'reality-loading': 3,
+                'concept-loading': 4,
+                'risk-loading': 5,
+                'comp-loading': 6,
+                'search-loading': 7,
+                'plan-loading': 8,
+                'learning-loading': 9
+            };
+            var responseSections = document.querySelectorAll('#responses .response-section');
+            responseSections.forEach(function(section) {
+                section.style.display = 'none';
+            });
+            var lastLoadingId = '';
+            try { lastLoadingId = sessionStorage.getItem('bookmindLastLoading') || ''; } catch(e) {}
+            if (lastLoadingId && responseMapping[lastLoadingId] !== undefined) {
+                var idx = responseMapping[lastLoadingId];
+                if (responseSections[idx]) {
+                    responseSections[idx].style.display = 'block';
+                }
+            } else {
+                var hasAny = false;
+                responseSections.forEach(function(section) {
+                    var box = section.querySelector('.response-box');
+                    if (box && box.textContent.trim() !== '') {
+                        section.style.display = 'block';
+                        hasAny = true;
+                    }
+                });
+                if (!hasAny && responseSections.length > 0) {
+                    responseSections[0].style.display = 'block';
+                }
+            }
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script src="/js/ui-audit.js" defer></script>
+    <script>
+        function renderMath() {
+            document.querySelectorAll('.response-box math, .output-text math').forEach(function(el) {
+                if (el.dataset.katexRendered) return;
+                try {
+                    katex.render(el.textContent, el, {
+                        displayMode: el.classList.contains('display-math'),
+                        throwOnError: false,
+                    });
+                    el.dataset.katexRendered = 'true';
+                } catch (e) {
+                    console.error('KaTeX render error:', e);
+                }
+            });
+
+            // Render $$...$$ display math and \(...\) inline math
+            renderDelimitedMath();
+        }
+
+        function renderDelimitedMath() {
+            const containers = document.querySelectorAll('.response-box, .output-text');
+            containers.forEach(function(container) {
+                if (container.dataset.katexProcessed) return;
+                container.dataset.katexProcessed = 'true';
+
+                // Process display math: $$...$$
+                let html = container.innerHTML;
+                html = html.replace(/\$\$([\s\S]*?)\$\$/g, function(match, tex) {
+                    try {
+                        var clean = tex.replace(/<[^>]*>/g, '').replace(/&lt;\/?[a-zA-Z][^&]*&gt;/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').trim();
+                        return katex.renderToString(clean, { displayMode: true, throwOnError: false });
+                    } catch (e) {
+                        console.error('KaTeX render error:', e);
+                        return match;
+                    }
+                });
+
+                // Process inline math: \(...\)
+                html = html.replace(/\\\(([\s\S]*?)\\\)/g, function(match, tex) {
+                    try {
+                        var clean = tex.replace(/<[^>]*>/g, '').replace(/&lt;\/?[a-zA-Z][^&]*&gt;/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').trim();
+                        return katex.renderToString(clean, { displayMode: false, throwOnError: false });
+                    } catch (e) {
+                        console.error('KaTeX render error:', e);
+                        return match;
+                    }
+                });
+
+                // Process inline math: $...$ (only if not already inside $$)
+                html = html.replace(/(?<!\$)\$(?!\$)([^\n$]+?)(?<!\$)\$(?!\$)/g, function(match, tex) {
+                    try {
+                        var clean = tex.replace(/<[^>]*>/g, '').replace(/&lt;\/?[a-zA-Z][^&]*&gt;/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').trim();
+                        return katex.renderToString(clean, { displayMode: false, throwOnError: false });
+                    } catch (e) {
+                        console.error('KaTeX render error:', e);
+                        return match;
+                    }
+                });
+
+                container.innerHTML = html;
+            });
+        }
+        window.addEventListener('load', renderMath);
+        document.addEventListener('DOMContentLoaded', function() {
+            renderMath();
+            setupKaTeXObserver();
+        });
+
+        function setupKaTeXObserver() {
+            const observer = new MutationObserver(function(mutations) {
+                let shouldRender = false;
+                for (const mutation of mutations) {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        shouldRender = true;
+                        break;
+                    }
+                }
+                if (shouldRender) {
+                    renderMath();
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
+
+        async function updateExtractionMode(mode) {
+            if (!mode) return;
+            try {
+                const response = await fetch('/settings/extraction-mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode })
+                });
+                if (!response.ok) throw new Error('Failed to update extraction mode');
+                const data = await response.json();
+                alert('Extraction mode updated to: ' + data.mode);
+            } catch (err) {
+                alert('Error updating extraction mode: ' + err.message);
+            }
+        }
+
+        // Load current extraction mode on page load
+        async function loadExtractionMode() {
+            try {
+                const response = await fetch('/settings/extraction-mode');
+                const data = await response.json();
+                const select = document.getElementById('extractionModeSelect');
+                if (select && data.mode) {
+                    select.value = data.mode;
+                }
+            } catch (err) {
+                console.error('Failed to load extraction mode:', err);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', loadExtractionMode);
+
+        const UPLOAD_MESSAGES = {
+            uploading: '[[#{app.upload.processing}]]',
+            cacheHit: '[[#{app.upload.cache.hit}]]',
+            extractionComplete: '[[#{app.upload.extraction.complete}]]',
+            failed: '[[#{app.upload.extraction.failed}]]',
+            error: '[[#{app.upload.error}]]',
+        };
+
+        // Upload form with SSE progress
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('uploadForm');
+            if (!form) return;
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fileInput = document.getElementById('uploadFile');
+                const file = fileInput.files[0];
+                if (!file) return;
+                const progressDiv = document.getElementById('uploadProgress');
+                const progressBar = document.getElementById('uploadProgressBar');
+                const progressText = document.getElementById('uploadProgressText');
+                const submitBtn = document.getElementById('uploadSubmitBtn');
+                submitBtn.disabled = true;
+                progressDiv.style.display = 'block';
+                progressBar.style.width = '0%';
+                progressBar.classList.remove('bg-success', 'bg-danger');
+                progressBar.classList.add('bg-primary');
+                progressText.textContent = UPLOAD_MESSAGES.uploading;
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(errText || 'Upload failed');
+                    }
+                    const data = JSON.parse(await response.text());
+                    if (data.status === 'CACHED') {
+                        progressBar.style.width = '100%';
+                        progressBar.classList.remove('bg-primary');
+                        progressBar.classList.add('bg-success');
+                        progressText.textContent = UPLOAD_MESSAGES.cacheHit;
+                        setTimeout(() => { progressDiv.style.display = 'none'; }, 2000);
+                        return;
+                    }
+                    if (!data.jobId) throw new Error('No job ID returned');
+
+                    let currentPhase = 'Processing PDF';
+                    let processedPages = 0;
+                    let totalPages = -1;
+                    let reconnectAttempts = 0;
+                    const MAX_RECONNECT_ATTEMPTS = 20;
+                    const RECONNECT_DELAY_MS = 1000;
+
+                    function connectEventSource(jobId) {
+                        const es = new EventSource('/upload/progress/' + jobId);
+
+                        es.onmessage = (event) => {
+                            const msg = JSON.parse(event.data);
+                            if (msg.status === 'COMPLETED') {
+                                progressBar.style.width = '100%';
+                                progressBar.classList.remove('bg-primary');
+                                progressBar.classList.add('bg-success');
+                                progressText.textContent = UPLOAD_MESSAGES.extractionComplete;
+                                es.close();
+                                submitBtn.disabled = false;
+                                if (msg.bookId) {
+                                    fetch('/books/' + msg.bookId + '/load', { method: 'POST' })
+                                        .then(r => r.text())
+                                        .then(txt => console.log('Book loaded:', txt))
+                                        .catch(err => console.error('Load book failed:', err));
+                                }
+                                setTimeout(() => { progressDiv.style.display = 'none'; }, 2000);
+                            } else if (msg.status === 'FAILED') {
+                                progressBar.classList.remove('bg-primary');
+                                progressBar.classList.add('bg-danger');
+                                progressText.textContent = UPLOAD_MESSAGES.failed + ': ' + (msg.errorMessage || 'Unknown error');
+                                es.close();
+                                submitBtn.disabled = false;
+                            } else {
+                                currentPhase = msg.phase || currentPhase;
+                                processedPages = msg.processedPages || processedPages;
+                                totalPages = msg.totalPages || totalPages;
+                                if (totalPages > 0) {
+                                    const pct = Math.round((processedPages / totalPages) * 100);
+                                    progressBar.style.width = pct + '%';
+                                    progressText.textContent = currentPhase + ' (' + pct + '%)';
+                                } else {
+                                    progressBar.style.width = '100%';
+                                    progressText.textContent = currentPhase + '...';
+                                }
+                            }
+                        };
+
+                        es.onerror = () => {
+                            es.close();
+                            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                                reconnectAttempts++;
+                                progressText.textContent = currentPhase + ' (reconnecting...)';
+                                setTimeout(() => connectEventSource(jobId), RECONNECT_DELAY_MS);
+                            } else {
+                                progressBar.classList.remove('bg-primary');
+                                progressBar.classList.add('bg-danger');
+                                progressText.textContent = UPLOAD_MESSAGES.error + ': Connection lost';
+                                submitBtn.disabled = false;
+                            }
+                        };
+                    }
+
+                    connectEventSource(data.jobId);
+                } catch (err) {
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-danger');
+                    progressText.textContent = UPLOAD_MESSAGES.error + ': ' + err.message;
+                    submitBtn.disabled = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
+
+

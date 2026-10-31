@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" id="htmlRoot">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عن الموقع - Book Assistant Lite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a1f2e;
+            --bg-hover: #242b3d;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --text-muted: #9ca3af;
+            --accent-primary: #f59e0b;
+            --accent-secondary: #d97706;
+            --accent-glow: rgba(245, 158, 11, 0.3);
+            --border-color: #2d3748;
+            --border-light: #374151;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --shadow-glow: 0 0 20px var(--accent-glow);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1e1b2e 50%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        body.ltr { font-family: 'Inter', sans-serif; }
+
+        /* Header */
+        .header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 0;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
+        .header-content { display: flex; align-items: center; justify-content: space-between; }
+        .logo { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
+        .logo-icon { font-size: 1.75rem; filter: drop-shadow(0 0 10px var(--accent-glow)); }
+        .logo h1 {
+            font-size: 1.25rem; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), #fbbf24);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .header-right { display: flex; align-items: center; gap: 1.25rem; }
+        .nav-links { display: flex; gap: 1.5rem; list-style: none; }
+        .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: var(--accent-primary); }
+
+        /* Lang switcher */
+        .lang-switcher {
+            display: flex; align-items: center;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-light);
+            border-radius: 2rem; padding: 0.2rem;
+        }
+        .lang-btn {
+            background: none; border: none;
+            color: var(--text-muted);
+            padding: 0.25rem 0.8rem; border-radius: 2rem;
+            cursor: pointer; font-size: 0.82rem;
+            font-family: 'Cairo', sans-serif;
+            transition: all 0.2s;
+        }
+        .lang-btn.active { background: var(--accent-primary); color: var(--bg-primary); font-weight: 700; }
+        .lang-btn:hover:not(.active) { color: var(--text-primary); }
+
+        /* Hero */
+        .hero { padding: 4rem 0 2rem; text-align: center; }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+            color: var(--accent-primary); padding: 0.4rem 1rem; border-radius: 2rem;
+            font-size: 0.85rem; margin-bottom: 1.5rem;
+            animation: fadeInDown 0.6s ease;
+        }
+        .hero h2 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.3; animation: fadeInUp 0.6s ease 0.1s both; }
+        .hero h2 span { background: linear-gradient(135deg, var(--accent-primary), #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero p { color: var(--text-secondary); font-size: 1.05rem; max-width: 600px; margin: 0 auto 2rem; line-height: 1.8; animation: fadeInUp 0.6s ease 0.2s both; }
+        .hero-btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: var(--bg-primary); padding: 0.75rem 2rem; border-radius: var(--radius-lg);
+            text-decoration: none; font-weight: 700; font-size: 1rem;
+            transition: all 0.3s; box-shadow: 0 4px 15px var(--accent-glow);
+            animation: fadeInUp 0.6s ease 0.3s both;
+        }
+        .hero-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px var(--accent-glow); }
+
+        /* Section */
+        .section { padding: 2.5rem 0; }
+        .section-title {
+            font-size: 1.4rem; font-weight: 700; margin-bottom: 1.75rem;
+            color: var(--text-primary); display: flex; align-items: center; gap: 0.75rem;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+
+        /* Features */
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }
+        .feature-card {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl); padding: 1.5rem;
+            transition: all 0.3s; animation: fadeInUp 0.5s ease both;
+        }
+        .feature-card:hover { border-color: var(--accent-primary); transform: translateY(-3px); box-shadow: var(--shadow-glow); }
+        .feature-icon { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+        .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent-primary); }
+        .feature-card p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.7; }
+        .feature-card:nth-child(1){animation-delay:0.1s} .feature-card:nth-child(2){animation-delay:0.2s}
+        .feature-card:nth-child(3){animation-delay:0.3s} .feature-card:nth-child(4){animation-delay:0.4s}
+        .feature-card:nth-child(5){animation-delay:0.5s} .feature-card:nth-child(6){animation-delay:0.6s}
+
+        /* Steps */
+        .steps { display: flex; flex-direction: column; gap: 1rem; }
+        .step { display: flex; align-items: flex-start; gap: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 1.5rem; transition: all 0.3s; }
+        .step:hover { border-color: rgba(245,158,11,0.4); }
+        .step-number { background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: var(--bg-primary); width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+        .step-content h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem; }
+        .step-content p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.7; }
+
+        /* Tech grid with icons */
+        .tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; }
+        .tech-item {
+            background: var(--bg-hover); border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg); padding: 1rem 0.75rem;
+            display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+            transition: all 0.2s; text-align: center;
+        }
+        .tech-item:hover { border-color: var(--accent-primary); transform: translateY(-3px); box-shadow: 0 4px 15px var(--accent-glow); }
+        .tech-item img { width: 38px; height: 38px; object-fit: contain; }
+        .tech-item span { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; }
+
+        /* Dev card */
+        .dev-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 2rem; display: flex; align-items: center; gap: 2rem; }
+        .dev-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), #fbbf24); display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; box-shadow: var(--shadow-glow); }
+        .dev-info h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .dev-info .dev-role { color: var(--accent-primary); font-size: 0.9rem; margin-bottom: 0.75rem; }
+        .dev-info p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; }
+
+        /* CTA */
+        .cta-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 3rem 2rem; text-align: center; margin: 2rem 0 4rem; position: relative; overflow: hidden; }
+        .cta-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent-primary), #fbbf24, var(--accent-primary)); }
+        .cta-section h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .cta-section p { color: var(--text-muted); margin-bottom: 1.5rem; }
+
+        /* Footer */
+        .footer { border-top: 1px solid var(--border-color); padding: 2rem 0; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+
+        @keyframes fadeInDown { from{opacity:0;transform:translateY(-15px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+
+        @media (max-width: 600px) {
+            .hero h2 { font-size: 1.75rem; }
+            .dev-card { flex-direction: column; text-align: center; }
+            .nav-links { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    <span class="logo-icon">📚</span>
+                    <h1>Book Assistant Lite</h1>
+                </a>
+                <div class="header-right">
+                    <ul class="nav-links">
+                        <li><a href="/" data-ar="الرئيسية" data-en="Home">الرئيسية</a></li>
+                        <li><a href="/about" class="active" data-ar="عن الموقع" data-en="About">عن الموقع</a></li>
+                        <li><a href="/contact" data-ar="تواصل معنا" data-en="Contact">تواصل معنا</a></li>
+                        <li><a href="/feedback" data-ar="اقتراحات" data-en="Feedback">اقتراحات</a></li>
+                    </ul>
+                    <div class="lang-switcher">
+                        <button class="lang-btn active" onclick="switchLang('ar')">ع</button>
+                        <button class="lang-btn" onclick="switchLang('en')">EN</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <section class="hero">
+            <div class="hero-badge" data-ar="📚 منصة تعليمية مجانية" data-en="📚 Free Educational Platform">📚 منصة تعليمية مجانية</div>
+            <h2 data-ar="تعلّم أكثر من كتبك<br>بمساعدة <span>الذكاء الاصطناعي</span>" data-en="Learn More From Your Books<br>With <span>Artificial Intelligence</span>">تعلّم أكثر من كتبك<br>بمساعدة <span>الذكاء الاصطناعي</span></h2>
+            <p data-ar="Book Assistant Lite يساعدك على فهم الكتب بشكل أعمق، من خلال تلخيص المحتوى وتحليله وتوليد أسئلة اختبار - كل ده في مكان واحد." data-en="Book Assistant Lite helps you understand books more deeply, through summarizing, analyzing content and generating comprehension tests - all in one place.">Book Assistant Lite يساعدك على فهم الكتب بشكل أعمق، من خلال تلخيص المحتوى وتحليله وتوليد أسئلة اختبار - كل ده في مكان واحد.</p>
+            <a href="/" class="hero-btn" data-ar="🚀 ابدأ الآن مجاناً" data-en="🚀 Start for Free">🚀 ابدأ الآن مجاناً</a>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title" data-ar="✨ إيه اللي يقدر يعمله الموقع" data-en="✨ What the Platform Can Do">✨ إيه اللي يقدر يعمله الموقع</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">📖</span>
+                    <h3 data-ar="تلخيص الكتب" data-en="Book Summarization">تلخيص الكتب</h3>
+                    <p data-ar="احصل على ملخص شامل للكتاب بالكامل أو لأي نطاق صفحات تختاره." data-en="Get a comprehensive summary of the entire book or any page range you choose.">احصل على ملخص شامل للكتاب بالكامل أو لأي نطاق صفحات تختاره.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🔬</span>
+                    <h3 data-ar="تحليل عميق" data-en="Deep Analysis">تحليل عميق</h3>
+                    <p data-ar="تحليل الأفكار الرئيسية والمفاهيم والحجج الموجودة في الكتاب." data-en="Analyze the main ideas, concepts, and arguments found in the book.">تحليل الأفكار الرئيسية والمفاهيم والحجج الموجودة في الكتاب.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">❓</span>
+                    <h3 data-ar="أسئلة وأجوبة" data-en="Q&A">أسئلة وأجوبة</h3>
+                    <p data-ar="اسأل أي سؤال عن محتوى الكتاب وهتاخد إجابة دقيقة من النص." data-en="Ask any question about the book's content and get an accurate answer from the text.">اسأل أي سؤال عن محتوى الكتاب وهتاخد إجابة دقيقة من النص.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📝</span>
+                    <h3 data-ar="اختبارات فهم" data-en="Comprehension Tests">اختبارات فهم</h3>
+                    <p data-ar="توليد أسئلة اختيار من متعدد لاختبار فهمك لأي جزء من الكتاب." data-en="Generate multiple choice questions to test your understanding of any part of the book.">توليد أسئلة اختيار من متعدد لاختبار فهمك لأي جزء من الكتاب.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🔍</span>
+                    <h3 data-ar="بحث ذكي" data-en="Smart Search">بحث ذكي</h3>
+                    <p data-ar="ابحث عن أي موضوع أو مفهوم داخل الكتاب بسرعة ودقة." data-en="Search for any topic or concept inside the book quickly and accurately.">ابحث عن أي موضوع أو مفهوم داخل الكتاب بسرعة ودقة.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🌐</span>
+                    <h3 data-ar="عربي وإنجليزي" data-en="Arabic & English">عربي وإنجليزي</h3>
+                    <p data-ar="يدعم الكتب العربية والإنجليزية مع إمكانية اختيار لغة الإجابة." data-en="Supports Arabic and English books with the ability to choose the output language.">يدعم الكتب العربية والإنجليزية مع إمكانية اختيار لغة الإجابة.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title" data-ar="⚡ إزاي يشتغل" data-en="⚡ How It Works">⚡ إزاي يشتغل</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3 data-ar="ارفع الكتاب" data-en="Upload the Book">ارفع الكتاب</h3>
+                        <p data-ar="ارفع ملف PDF بتاعك، حتى 200MB. الموقع بيكتشف لغة الكتاب تلقائياً." data-en="Upload your PDF file, up to 200MB. The site automatically detects the book's language.">ارفع ملف PDF بتاعك، حتى 200MB. الموقع بيكتشف لغة الكتاب تلقائياً.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3 data-ar="اختار الأداة" data-en="Choose a Tool">اختار الأداة</h3>
+                        <p data-ar="اختار من بين التلخيص والتحليل والأسئلة والاختبارات والبحث الذكي." data-en="Choose from summarization, analysis, Q&A, comprehension tests, and smart search.">اختار من بين التلخيص والتحليل والأسئلة والاختبارات والبحث الذكي.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3 data-ar="احصل على النتيجة" data-en="Get the Result">احصل على النتيجة</h3>
+                        <p data-ar="الذكاء الاصطناعي يحلل الكتاب ويرد عليك بإجابة مفصلة في ثوانٍ." data-en="AI analyzes the book and responds with a detailed answer in seconds.">الذكاء الاصطناعي يحلل الكتاب ويرد عليك بإجابة مفصلة في ثوانٍ.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title" data-ar="🛠️ التقنيات المستخدمة" data-en="🛠️ Technologies Used">🛠️ التقنيات المستخدمة</h2>
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg" alt="Java">
+                    <span>Java</span>
+                </div>
+                <div class="tech-item">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/spring/spring-original.svg" alt="Spring Boot">
+                    <span>Spring Boot</span>
+                </div>
+                <div class="tech-item">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" alt="Docker">
+                    <span>Docker</span>
+                </div>
+                <div class="tech-item">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg" alt="HTML5">
+                    <span>HTML / CSS</span>
+                </div>
+                <div class="tech-item">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" alt="GitHub" style="filter:invert(1)">
+                    <span>GitHub</span>
+                </div>
+                <div class="tech-item">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/maven/maven-original.svg" alt="Maven">
+                    <span>Maven</span>
+                </div>
+                <div class="tech-item">
+                    <img src="https://ollama.com/public/ollama.png" alt="Ollama AI">
+                    <span>Ollama AI</span>
+                </div>
+                <div class="tech-item">
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAACOEfKtAAABWUlEQVR4nO3cwW2DQBBA0bGVKuKDXUHcfxnpIBfXkRyMJYRkxewf8K7m/zOH5WkRQgwcPs9fv2HNHd+9gNETECYgTECYgDABYQLCBIQJCPt49wLWdvv5/veY0+W6w0ruHUZ4lHsF7VlbY3YNSOCWbQXZJWAm3LJsyNWAW57cXmUilrwLZ26CkoAReYhlASNyEEsDRnDE8oARDFFAmIBTrbtQQJiAs1p2oYAwAWECLlp7GQsIExAmIExAmIAwAWECwgSECbho7QsnAWECwgSc1fK+WECYgFOt0woCwgQMNitTHpAOGpUGzJjSKguYNeJWEtD5QFD2hOpwU/qtbTUj3TXg46R7ntLvGvDRHKG370SGAJy3J84rlbuJZCcgTECYgDABYQLCBIQJCBMQJiBMQJiAMAFhAsIEhAkIExDW5X9jRsodCBMQJiBMQJiAMAFhAsIEhAkIExD2B+BIOBuYhxRTAAAAAElFTkSuQmCC" alt="Render" style="width:38px;height:38px;object-fit:contain">
+                    <span>Render</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title" data-ar="👨‍💻 المطور" data-en="👨‍💻 Developer">👨‍💻 المطور</h2>
+            <div class="dev-card">
+                <div class="dev-avatar">👨‍💻</div>
+                <div class="dev-info">
+                    <h3>مينا سمير · Meena Samir</h3>
+                    <div class="dev-role" data-ar="مطور البروجيكت" data-en="Project Developer">مطور البروجيكت</div>
+                    <p data-ar="مطور بيؤمن إن التعليم حق للجميع. Book Assistant Lite بُني عشان يساعد الناس يستفيدوا أكتر من الكتب اللي بيقروها باستخدام إمكانيات الذكاء الاصطناعي." data-en="A developer who believes education is a right for everyone. Book Assistant Lite was built to help people get more out of the books they read using the capabilities of AI.">مطور بيؤمن إن التعليم حق للجميع. Book Assistant Lite بُني عشان يساعد الناس يستفيدوا أكتر من الكتب اللي بيقروها باستخدام إمكانيات الذكاء الاصطناعي.</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="cta-section">
+            <h2 data-ar="جاهز تبدأ؟" data-en="Ready to Start?">جاهز تبدأ؟</h2>
+            <p data-ar="ارفع كتابك دلوقتي وجرب الأدوات مجاناً" data-en="Upload your book now and try the tools for free">ارفع كتابك دلوقتي وجرب الأدوات مجاناً</p>
+            <a href="/" class="hero-btn" data-ar="📚 ابدأ الآن" data-en="📚 Start Now">📚 ابدأ الآن</a>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p data-ar="© 2025 Book Assistant Lite · تم التطوير بواسطة مينا سمير" data-en="© 2025 Book Assistant Lite · Developed by Meena Samir">© 2025 Book Assistant Lite · تم التطوير بواسطة مينا سمير</p>
+        </div>
+    </footer>
+
+    <script>
+        function switchLang(lang) {
+            const isAr = lang === 'ar';
+            const html = document.getElementById('htmlRoot');
+            html.setAttribute('lang', lang);
+            html.setAttribute('dir', isAr ? 'rtl' : 'ltr');
+            document.body.style.fontFamily = isAr ? "'Cairo', sans-serif" : "'Inter', sans-serif";
+
+            // Update all buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', (btn.textContent.trim() === 'ع') === isAr);
+            });
+
+            // Update all translatable elements
+            document.querySelectorAll('[data-ar][data-en]').forEach(el => {
+                const text = isAr ? el.getAttribute('data-ar') : el.getAttribute('data-en');
+                el.innerHTML = text;
+            });
+
+            localStorage.setItem('lang', lang);
+        }
+
+        // Load saved language on page load
+        const saved = localStorage.getItem('lang');
+        if (saved && saved !== 'ar') switchLang(saved);
+    </script>
+</body>
+</html>

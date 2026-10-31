@@ -1,0 +1,1 @@
+$path = "D:\book-assistant-lite\project\src\main\resources\messages.properties"; (Get-Content $path) -replace "app\.upload\.processing=Processing\.\.\.", "extraction.mode.model.only=Model Only`r`nextraction.mode.model.only.hint=Using native PDF text extraction. Switch to Pix2Text for OCR-heavy PDFs.`r`napp.upload.processing=Processing..." | Set-Content $path
