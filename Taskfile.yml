@@ -1,7 +1,7 @@
 version: '3'
 
 env:
-  PROJECT_ROOT: "/mnt/d/book-assistant-lite"
+  PROJECT_ROOT: "/mnt/d/BookMind-Nexus"
   COMPOSE_FILE: "{{.PROJECT_ROOT}}/docker-compose.yml"
 
 tasks:

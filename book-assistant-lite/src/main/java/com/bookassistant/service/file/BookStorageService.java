@@ -26,7 +26,7 @@ public class BookStorageService {
     private final Path pdfSourceRoot;
 
     public BookStorageService(BookRepository bookRepository, BookPersistenceService bookPersistenceService,
-                              @Value("${app.pdf-source-dir:D:/book-assistant-lite/external/pdfs}") String pdfSourceDir) {
+                              @Value("${app.pdf-source-dir:D:/BookMind-Nexus/external/pdfs}") String pdfSourceDir) {
         this.bookRepository = bookRepository;
         this.bookPersistenceService = bookPersistenceService;
         this.pdfSourceRoot = Paths.get(pdfSourceDir).toAbsolutePath().normalize();

@@ -5,7 +5,7 @@
 - **Frontend**: Thymeleaf + JavaScript on Spring Boot 3.5 (Java 21), port 8083
 - **Backend**: Spring Boot layered architecture: Controller → Service → Repository → Entity
 - **Database**: PostgreSQL 16 + pgvector (Docker service: `postgres`), port 5432, database `book_assistant`
-- **Storage**: Local filesystem under cache/upload/tmp directories (WSL: `/mnt/d/book-assistant-lite/`, Docker: `/app/`)
+- **Storage**: Local filesystem under cache/upload/tmp directories (WSL: `/mnt/d/BookMind-Nexus/`, Docker: `/app/`)
 - **Container Orchestration**: Docker Compose with 4 services (postgres, ollama, pix2text, app)
 
 ## PDF Processing Pipeline

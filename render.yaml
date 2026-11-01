@@ -1,0 +1,162 @@
+services:
+  # Main Spring Boot Application
+  - type: web
+    name: bookmind-nexus-app
+    runtime: docker
+    dockerfilePath: ./book-assistant-lite/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: docker
+      - key: SERVER_PORT
+        value: 8083
+      - key: DB_USERNAME
+        fromDatabase: bookmind-nexus-db
+        property: USERNAME
+      - key: DB_PASSWORD
+        fromDatabase: bookmind-nexus-db
+        property: PASSWORD
+      - key: AI_BASE_URL
+        value: http://ollama:11434/api/generate
+      - key: AI_MODEL
+        value: llama3.2:3b
+      - key: AI_EMBEDDING_MODEL
+        value: nomic-embed-text
+      - key: AI_API_KEY
+        value: local-dummy-key
+      - key: AI_TIMEOUT_SECONDS
+        value: "86400"
+      - key: PIX2TEXT_URL
+        value: http://pix2text:8080
+      - key: PIX2TEXT_TIMEOUT
+        value: 86400s
+      - key: SUMMARY_PAGES_MODE
+        value: aisummary
+      - key: EXTRACTION_MODE
+        value: model-only
+      - key: NOTION_OAUTH_CLIENT_ID
+        sync: false
+      - key: NOTION_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: NOTION_OAUTH_REDIRECT_URI
+        value: https://your-app.onrender.com/oauth2/callback/notion
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        value: https://your-app.onrender.com/oauth2/callback/google
+      - key: APP_CRYPTO_ENCRYPTION_KEY
+        sync: false
+      - key: AI_GATEWAY_URL
+        value: http://bookmind-nexus-ai-gateway:8081
+    healthCheckPath: /
+    autoDeploy: true
+
+  # AI Gateway Service
+  - type: web
+    name: bookmind-nexus-ai-gateway
+    runtime: docker
+    dockerfilePath: ./ai-gateway/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: docker
+      - key: SERVER_PORT
+        value: 8081
+      - key: DB_USERNAME
+        fromDatabase: bookmind-nexus-db
+        property: USERNAME
+      - key: DB_PASSWORD
+        fromDatabase: bookmind-nexus-db
+        property: PASSWORD
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://bookmind-nexus-db:5432/BookMind_Nexus
+      - key: AI_GATEWAY_PROVIDERS_OLLAMA_ENABLED
+        value: "true"
+      - key: AI_GATEWAY_PROVIDERS_OLLAMA_BASE_URL
+        value: http://ollama:11434
+      - key: AI_GATEWAY_PROVIDERS_OLLAMA_MODELS
+        value: '["llama3.2:3b", "llama3.1:8b", "nomic-embed-text"]'
+      - key: AI_GATEWAY_PROVIDERS_OPENAI_ENABLED
+        value: "true"
+      - key: AI_GATEWAY_PROVIDERS_OPENAI_BASE_URL
+        value: https://api.openai.com/v1
+      - key: AI_GATEWAY_PROVIDERS_OPENAI_API_KEY
+        sync: false
+      - key: AI_GATEWAY_PROVIDERS_OPENAI_MODELS
+        value: '["gpt-4o", "gpt-4o-mini", "text-embedding-3-small"]'
+      - key: AI_GATEWAY_PROVIDERS_ANTHROPIC_ENABLED
+        value: "true"
+      - key: AI_GATEWAY_PROVIDERS_ANTHROPIC_BASE_URL
+        value: https://api.anthropic.com
+      - key: AI_GATEWAY_PROVIDERS_ANTHROPIC_API_KEY
+        sync: false
+      - key: AI_GATEWAY_PROVIDERS_ANTHROPIC_MODELS
+        value: '["claude-3-5-sonnet-20241022", "claude-3-opus-20240229"]'
+      - key: AI_GATEWAY_PROVIDERS_GOOGLE_ENABLED
+        value: "true"
+      - key: AI_GATEWAY_PROVIDERS_GOOGLE_BASE_URL
+        value: https://generativelanguage.googleapis.com
+      - key: AI_GATEWAY_PROVIDERS_GOOGLE_API_KEY
+        sync: false
+      - key: AI_GATEWAY_PROVIDERS_GOOGLE_MODELS
+        value: '["gemini-1.5-pro", "gemini-1.5-flash", "text-embedding-004"]'
+      - key: AI_GATEWAY_LOCAL_PDF_DIRECTORY
+        value: /home/user/books
+      - key: AI_GATEWAY_ORCHESTRATION_MAX_TURNS
+        value: "10"
+      - key: AI_GATEWAY_ORCHESTRATION_TIMEOUT_SECONDS
+        value: "300"
+    healthCheckPath: /api/gateway/health
+    autoDeploy: true
+
+  # Ollama Service (for local LLM inference)
+  - type: web
+    name: bookmind-nexus-ollama
+    runtime: docker
+    dockerfilePath: ./Dockerfile.ollama
+    dockerContext: .
+    plan: free
+    region: oregon
+    envVars:
+      - key: OLLAMA_HOST
+        value: 0.0.0.0:11434
+    healthCheckPath: /
+    autoDeploy: true
+
+  # Pix2Text Extraction Service
+  - type: web
+    name: bookmind-nexus-pix2text
+    runtime: docker
+    dockerfilePath: ./extraction-service/Dockerfile
+    dockerContext: ./extraction-service
+    plan: free
+    region: oregon
+    envVars:
+      - key: PYTORCH_CUDA_ALLOC_CONF
+        value: max_split_size_mb:512
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # PostgreSQL Database with pgvector
+  - type: pserv
+    name: bookmind-nexus-db
+    plan: free
+    region: oregon
+    postgresMajorVersion: 16
+    ipAllowList: []
+    databaseName: BookMind_Nexus
+    user: postgres
+
+databases:
+  - name: bookmind-nexus-db
+    plan: free
+    region: oregon
+    postgresMajorVersion: 16
+    databaseName: BookMind_Nexus
+    user: postgres

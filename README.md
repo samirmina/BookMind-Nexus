@@ -15,7 +15,10 @@ BookMind Nexus is not an AI summarizer. It extracts verbatim passages from your 
 - **Learning Paths**: Build study plans from book content
 - **Multi-language UI**: 13 languages supported (book content stays in its original language)
 - **LaTeX math rendering**: Mathematical notation preserved exactly as written
-- **OAuth Integration**: Notion account linking for external platform sync
+- **Bring Your Own Key (BYOK) / Use Your Own LLM**: Configure your own AI provider per account (Ollama local, OpenAI, Anthropic, Google Vertex AI, Cohere, or any OpenAI-compatible endpoint)
+- **Per-user AI provider settings**: Each user configures their own AI credentials; keys are stored encrypted and never shared
+- **OAuth Integration**: Notion account linking for external platform sync; Google OAuth for authentication
+- **Passwordless authentication**: Email magic links and OAuth — no passwords stored
 - **Telemetry & Admin Console**: System health monitoring, error tracking, and runtime logs
 - **Docker-ready**: One-command setup with PostgreSQL, Ollama, and optional Pix2Text OCR
 
@@ -26,7 +29,7 @@ BookMind Nexus is not an AI summarizer. It extracts verbatim passages from your 
 | Backend | Spring Boot 3.5, Java 21 |
 | Frontend | Thymeleaf + Bootstrap 5 (dark theme) |
 | Database | PostgreSQL 16 + pgvector (RAG embeddings) |
-| AI | Ollama — Llama 3.2:3b, nomic-embed-text |
+| AI Providers | Ollama (local), OpenAI, Anthropic (Claude), Google Vertex AI / Gemini, Cohere, any OpenAI-compatible endpoint (vLLM, LM Studio, LocalAI, TGI) |
 | OCR (optional) | Pix2Text (CUDA 12.4, Python 3.12) |
 | Container | Docker Compose (4 services) |
 | Ports | App: 8083, Postgres: 5432, Ollama: 11434, Pix2Text: 8080 |
@@ -116,8 +119,8 @@ BookMind-Nexus/
 │   │   │   ├── model/            # Domain models
 │   │   │   ├── repository/       # Spring Data JPA repositories
 │   │   │   ├── service/          # Business logic
-│   │   │   │   ├── ai/           # AiService (Ollama integration)
-│   │   │   │   ├── auth/         # UserService
+│   │   │   │   ├── ai/           # AiService, ProviderAdapterFactory, provider adapters
+│   │   │   │   ├── auth/         # UserService, UserAiConfigService
 │   │   │   │   ├── config/       # RuntimeConfigService
 │   │   │   │   ├── file/         # PDF parsing, extraction, slicing
 │   │   │   │   ├── integration/  # Learning paths, sync, external platforms
@@ -126,6 +129,7 @@ BookMind-Nexus/
 │   │   │   │   ├── telemetry/    # Telemetry service
 │   │   │   │   ├── text/         # Markdown, text direction
 │   │   │   │   └── ui/           # HTML diff, screenshots
+│   │   │   ├── provider/         # AI Provider Adapters (OpenAI-compatible, Anthropic, Google Vertex, Cohere)
 │   │   │   ├── session/          # BookSession
 │   │   │   ├── tool/             # Image extraction
 │   │   │   └── util/             # Utilities
@@ -145,7 +149,7 @@ BookMind-Nexus/
 │   │       │   ├── js/
 │   │       │   │   ├── collapsible.js
 │   │       │   │   └── ui-audit.js
-│   │       └── templates/              # 9 Thymeleaf templates
+│   │       └── templates/              # 10 Thymeleaf templates (incl. guide/ai-setup.html)
 │   └── test/                    # JUnit tests
 ├── cache/                  # Runtime cache directory
 ├── external/               # External data (cache, tmp, logs, pdfs)
@@ -184,16 +188,56 @@ AI_API_KEY=
 AI_TIMEOUT_SECONDS=86400
 ```
 
+### Bring Your Own Key (BYOK) / Use Your Own LLM
+
+Each user can configure their own AI provider in **Settings → AI Provider**:
+
+| Provider | Base URL | API Key Required | Example Models |
+|----------|----------|------------------|----------------|
+| **Ollama (Local)** | `http://localhost:11434` | No | `llama3.2:3b`, `nomic-embed-text` |
+| **OpenAI** | `https://api.openai.com/v1` | Yes (`sk-...`) | `gpt-4o`, `gpt-4o-mini`, `text-embedding-3-small` |
+| **Anthropic (Claude)** | `https://api.anthropic.com` | Yes | `claude-3-5-sonnet`, `claude-3-opus` |
+| **Google Vertex AI / Gemini** | `https://generativelanguage.googleapis.com` or Vertex endpoint | Yes (OAuth2) | `gemini-1.5-pro`, `gemini-1.5-flash` |
+| **Cohere** | `https://api.cohere.com` | Yes | `command-r-plus`, `embed-english-v3.0` |
+| **OpenAI-Compatible** | Your endpoint (e.g., `http://localhost:8000/v1`) | Yes | Any model served by vLLM, LM Studio, LocalAI, TGI, etc. |
+
+**Setup Guide**: Visit `/guide/ai-setup` in the app for step-by-step instructions with screenshots.
+
+**Test Connection**: Each configuration can be tested before saving via the "Test Connection" button.
+
+## AI Provider Adapter Architecture
+
+The application uses a **Provider Adapter Pattern** to support multiple AI providers:
+
+```
+AiService → ProviderAdapterFactory → [OpenAiCompatibleAdapter, AnthropicAdapter, GoogleVertexAdapter, CohereAdapter, ...]
+```
+
+Each adapter implements:
+- `buildRequest()` — Transforms internal config to provider-specific HTTP request
+- `extractContent()` — Parses provider-specific response format
+- `matchesBaseUrl()` — Auto-detects provider from base URL
+
+Adding a new provider: implement `AiProviderAdapter` and register in `ProviderAdapterFactory`.
+
 ## Database
 
 The app uses PostgreSQL with the `pgvector` extension for semantic search. Schema is initialized automatically on startup via `schema.sql` (and migration scripts).
+
+Key tables:
+- `users` — User accounts (email, name, timestamps)
+- `user_ai_config` — Per-user AI provider configuration (provider, base_url, api_key, model, embedding_model)
+- `books` — Uploaded books (title, file_path, page_count, full_text, thumbnails)
+- `book_chunks` — RAG chunks with `vector(768)` embeddings for semantic search
+- `linked_accounts` — OAuth linked accounts (Notion, Google)
 
 Seed data: a demo user is inserted via `data.sql` (change the password hash in production).
 
 ## AI Models
 
+Default models (used when no per-user config is set):
 - **Llama 3.2:3b** — Primary extraction model (recommended)
-- **nomic-embed-text** — Embedding model for RAG/semantic search
+- **nomic-embed-text** — Embedding model for RAG/semantic search (768 dimensions)
 
 Pull models before first use:
 ```bash
@@ -202,6 +246,18 @@ task pull-models
 docker compose exec ollama ollama pull llama3.2:3b
 docker compose exec ollama ollama pull nomic-embed-text
 ```
+
+## Authentication & Security
+
+- **Passwordless**: Email magic links and Google OAuth 2.0 — no passwords stored
+- **Session management**: HttpOnly cookies, 30-minute timeout
+- **Per-user API keys**: Stored encrypted in database, never logged
+- **Prompt injection protection**: OWASP-compliant sanitization on all user content
+
+### OAuth Integrations
+
+- **Google OAuth 2.0**: For user authentication
+- **Notion OAuth 2.0**: For external platform sync (configure via `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_OAUTH_REDIRECT_URI`)
 
 ## OAuth (Notion)
 
@@ -222,6 +278,15 @@ The app includes a telemetry system for monitoring:
 
 Access the admin console at `/admin/console` (requires authentication).
 
+## AI Setup Guide
+
+An interactive guide is available at **Settings → AI Provider → Setup Guide** (or directly at `/guide/ai-setup`):
+
+- Provider comparison table (Ollama vs OpenAI vs Custom)
+- Step-by-step setup instructions
+- Troubleshooting accordion (connection failures, API key errors, model not found, embedding dimension mismatches)
+- Link to open Settings directly
+
 ## Design Principles
 
 1. **Extraction, not summarization** — AI copies exact book text; never paraphrases
@@ -229,6 +294,7 @@ Access the admin console at `/admin/console` (requires authentication).
 3. **No translation of book content** — Books stay in their original language
 4. **Verbatim math** — LaTeX notation preserved exactly
 5. **No hallucinated structure** — Concept maps and risk flags only use text that exists in the book
+6. **User-owned AI** — Each user brings their own model; no shared keys or shared inference
 
 ## License
 

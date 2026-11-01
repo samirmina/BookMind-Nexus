@@ -1,5 +1,5 @@
 -- Book Assistant Lite - Fresh PostgreSQL Schema
--- Run this once against the new book_assistant database
+-- Run this once against the new BookMind_Nexus database
 
 -- Required extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

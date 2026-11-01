@@ -1,0 +1,102 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /api/gateway
+
+spring:
+  application:
+    name: ai-gateway
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/BookMind_Nexus
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  webflux:
+    base-path: /api/gateway
+  
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: NON_NULL
+
+# AI Gateway Configuration
+ai-gateway:
+  providers:
+    ollama:
+      enabled: true
+      base-url: http://localhost:11434
+      models:
+        - llama3.2:3b
+        - llama3.1:8b
+        - nomic-embed-text
+    
+    openai:
+      enabled: true
+      base-url: https://api.openai.com/v1
+      api-key: ${OPENAI_API_KEY:}
+      models:
+        - gpt-4o
+        - gpt-4o-mini
+        - text-embedding-3-small
+    
+    anthropic:
+      enabled: true
+      base-url: https://api.anthropic.com
+      api-key: ${ANTHROPIC_API_KEY:}
+      models:
+        - claude-3-5-sonnet-20241022
+        - claude-3-opus-20240229
+    
+    google:
+      enabled: true
+      base-url: https://generativelanguage.googleapis.com
+      api-key: ${GOOGLE_API_KEY:}
+      models:
+        - gemini-1.5-pro
+        - gemini-1.5-flash
+        - text-embedding-004
+  
+  local:
+    pdf-directory: ${BOOK_DIR:/home/user/books}
+    chunk-cache: ./cache/chunks
+    embeddings-cache: ./cache/embeddings
+  
+  orchestration:
+    max-turns: 10
+    timeout-seconds: 300
+    streaming: true
+
+# Logging
+logging:
+  level:
+    com.bookmind.gateway: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG
+    reactor.netty.http.client: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true

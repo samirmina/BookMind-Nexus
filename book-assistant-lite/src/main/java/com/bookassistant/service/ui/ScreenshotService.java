@@ -40,7 +40,7 @@ public class ScreenshotService {
 
     public ScreenshotService(UiScreenshotBaselineRepository baselineRepository,
                              UiScreenshotComparisonRepository comparisonRepository,
-                             @Value("${app.screenshots-dir:D:/book-assistant-lite/ui-screenshots}") String screenshotDir) {
+                             @Value("${app.screenshots-dir:D:/BookMind-Nexus/ui-screenshots}") String screenshotDir) {
         this.baselineRepository = baselineRepository;
         this.comparisonRepository = comparisonRepository;
         this.screenshotDir = screenshotDir;
