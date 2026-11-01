@@ -11,7 +11,7 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>book-assistant-lite</module>
+        <module>book-mind-nexus</module>
         <module>ai-gateway</module>
     </modules>
 

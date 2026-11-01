@@ -10,10 +10,10 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - BookMind-Nexus-postgres-data:/var/lib/postgresql/data
-      - ./book-assistant-lite/src/main/resources/schema-migration.sql:/docker-entrypoint-initdb.d/01-schema-migration.sql:ro
-      - ./book-assistant-lite/src/main/resources/schema-telemetry.sql:/docker-entrypoint-initdb.d/02-schema-telemetry.sql:ro
-      - ./book-assistant-lite/src/main/resources/schema-telemetry-triggers.sql:/docker-entrypoint-initdb.d/03-schema-telemetry-triggers.sql:ro
-      - ./book-assistant-lite/src/main/resources/schema-ui-validation.sql:/docker-entrypoint-initdb.d/04-schema-ui-validation.sql:ro
+      - ./book-mind-nexus/src/main/resources/schema-migration.sql:/docker-entrypoint-initdb.d/01-schema-migration.sql:ro
+      - ./book-mind-nexus/src/main/resources/schema-telemetry.sql:/docker-entrypoint-initdb.d/02-schema-telemetry.sql:ro
+      - ./book-mind-nexus/src/main/resources/schema-telemetry-triggers.sql:/docker-entrypoint-initdb.d/03-schema-telemetry-triggers.sql:ro
+      - ./book-mind-nexus/src/main/resources/schema-ui-validation.sql:/docker-entrypoint-initdb.d/04-schema-ui-validation.sql:ro
     ports:
       - "5432:5432"
     healthcheck:

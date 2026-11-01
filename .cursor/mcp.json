@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "behavior-mcp": {
+      "command": "behavior-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "BEHAVIOR_MCP_PROJECT": "BookMind-Nexus"
+      }
+    }
+  }
+}

@@ -3,7 +3,7 @@ services:
   - type: web
     name: bookmind-nexus-app
     runtime: docker
-    dockerfilePath: ./book-assistant-lite/Dockerfile
+    dockerfilePath: ./book-mind-nexus/Dockerfile
     dockerContext: .
     plan: free
     region: oregon
