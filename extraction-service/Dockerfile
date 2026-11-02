@@ -182,9 +182,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     intel-gpu-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy venv from selected builder
-ARG BUILD_TARGET=cpu
-COPY --from=${BUILD_TARGET}-builder /opt/venv /opt/venv
+# Copy venv from cpu builder
+COPY --from=cpu-builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
