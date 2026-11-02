@@ -53,9 +53,9 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         StaticMessageSource ms = new StaticMessageSource();
-        ms.addMessage("register.success", Locale.US, "تم إنشاء الحساب بنجاح");
-        ms.addMessage("login.success", Locale.US, "تم تسجيل الدخول بنجاح");
-        ms.addMessage("logout.success", Locale.US, "تم تسجيل الخروج");
+        ms.addMessage("register.success", Locale.ENGLISH, "تم إنشاء الحساب بنجاح");
+        ms.addMessage("login.success", Locale.ENGLISH, "تم تسجيل الدخول بنجاح");
+        ms.addMessage("logout.success", Locale.ENGLISH, "تم تسجيل الخروج");
         this.messageSource = ms;
         this.authController = new AuthController(userService, messageSource);
     }

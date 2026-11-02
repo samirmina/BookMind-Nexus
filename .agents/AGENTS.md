@@ -1,7 +1,7 @@
 <!-- behavior-mcp:start -->
 # Behavior Runtime Engine (behavior-mcp)
 
-This project uses `behavior-mcp` with project slug "book-mind-nexus" to execute deterministic behavior trees at ~60Hz in browser runtimes with reactive triggers and safety guardrails.
+This project uses `behavior-mcp` with project slug "book-assistant-lite" to execute deterministic behavior trees at ~60Hz in browser runtimes with reactive triggers and safety guardrails.
 
 ## Mandatory Runtime Workflow
 1. **Load Behavior**: Call `load_behavior(action: "load", behavior_name: "...")` to activate execution.

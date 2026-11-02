@@ -1,9 +1,8 @@
 package com.bookmind.gateway.providers;
 
-import com.bookmind.gateway.core.GatewayModels.GatewayRequest;
-import com.bookmind.gateway.core.GatewayModels.GatewayResponse;
-import com.bookmind.gateway.core.GatewayModels.GatewayResponseChunk;
-import com.bookmind.gateway.core.GatewayModels.ProviderModel;
+import com.bookmind.gateway.core.GatewayRequest;
+import com.bookmind.gateway.core.GatewayResponse;
+import com.bookmind.gateway.core.GatewayResponseChunk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,14 +21,14 @@ import java.util.Optional;
  */
 @Component
 public class ProviderAdapterFactory {
-    
+
     private static final Logger log = LoggerFactory.getLogger(ProviderAdapterFactory.class);
-    
+
     private final Map<String, AiProvider> providers = new HashMap<>();
-    
+
     @Autowired(required = false)
     private List<AiProvider> providerList;
-    
+
     @PostConstruct
     public void init() {
         if (providerList != null) {
@@ -43,14 +42,14 @@ public class ProviderAdapterFactory {
             }
         }
     }
-    
+
     /**
      * Get provider by explicit ID.
      */
     public Optional<AiProvider> getProvider(String providerId) {
         return Optional.ofNullable(providers.get(providerId));
     }
-    
+
     /**
      * Get provider for a request (explicit or auto-detected).
      */
@@ -60,24 +59,24 @@ public class ProviderAdapterFactory {
             return getProvider(request.context().provider())
                 .orElseThrow(() -> new IllegalArgumentException("Provider not available: " + request.context().provider()));
         }
-        
+
         // Auto-detect from model name or config
         String model = (String) request.parameters().get("model");
         if (model != null) {
             return detectProviderByModel(model)
                 .orElseGet(this::getDefaultProvider);
         }
-        
+
         // Fallback to default
         return getDefaultProvider();
     }
-    
+
     /**
      * Auto-detect provider from model name.
      */
     private Optional<AiProvider> detectProviderByModel(String model) {
         String lower = model.toLowerCase();
-        
+
         if (lower.startsWith("gpt-") || lower.contains("openai") || lower.contains("embedding-3") || lower.contains("ada-002")) {
             return getProvider("openai");
         }
@@ -92,7 +91,7 @@ public class ProviderAdapterFactory {
         }
         return Optional.empty();
     }
-    
+
     /**
      * Get default available provider (prefers local Ollama).
      */
@@ -113,10 +112,10 @@ public class ProviderAdapterFactory {
         if (providers.containsKey("google") && providers.get("google").isAvailable()) {
             return providers.get("google");
         }
-        
+
         throw new IllegalStateException("No AI providers available. Configure at least one provider.");
     }
-    
+
     /**
      * Get all available providers.
      */
@@ -125,7 +124,7 @@ public class ProviderAdapterFactory {
             .filter(AiProvider::isAvailable)
             .toList();
     }
-    
+
     /**
      * Get all provider models (for UI dropdowns).
      */
@@ -135,7 +134,7 @@ public class ProviderAdapterFactory {
             .flatMap(p -> p.getSupportedModels().stream())
             .toList();
     }
-    
+
     /**
      * Register a provider dynamically.
      */
@@ -145,7 +144,7 @@ public class ProviderAdapterFactory {
             log.info("Dynamically registered provider: {}", provider.getDisplayName());
         }
     }
-    
+
     /**
      * Unregister a provider.
      */

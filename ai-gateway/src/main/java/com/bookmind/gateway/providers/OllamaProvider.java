@@ -1,8 +1,8 @@
 package com.bookmind.gateway.providers;
 
-import com.bookmind.gateway.core.GatewayModels.GatewayRequest;
-import com.bookmind.gateway.core.GatewayModels.GatewayResponse;
-import com.bookmind.gateway.core.GatewayModels.GatewayResponseChunk;
+import com.bookmind.gateway.core.GatewayRequest;
+import com.bookmind.gateway.core.GatewayResponse;
+import com.bookmind.gateway.core.GatewayResponseChunk;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -18,34 +18,34 @@ import java.util.Map;
  */
 @Component
 public class OllamaProvider implements AiProvider {
-    
+
     private final WebClient webClient;
-    
+
     @Value("${ai-gateway.providers.ollama.base-url:http://localhost:11434}")
     private String baseUrl;
-    
+
     @Value("${ai-gateway.providers.ollama.enabled:true}")
     private boolean enabled;
-    
+
     public OllamaProvider(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
     }
-    
+
     @Override
     public String getProviderId() {
         return "ollama";
     }
-    
+
     @Override
     public String getDisplayName() {
         return "Ollama (Local)";
     }
-    
+
     @Override
     public boolean isAvailable() {
         return enabled;
     }
-    
+
     @Override
     public List<ProviderModel> getSupportedModels() {
         return List.of(
@@ -56,27 +56,27 @@ public class OllamaProvider implements AiProvider {
             new ProviderModel("mxbai-embed-large", "Mxbai Embed Large", "embedding", 8192, false, false, Map.of("dimensions", 1024))
         );
     }
-    
+
     @Override
     public GatewayResponse complete(GatewayRequest request) {
         var stream = completeStream(request);
         StringBuilder content = new StringBuilder();
         String taskId = request.taskId();
-        
+
         stream.doOnNext(chunk -> {
             if (chunk.content() != null && !chunk.isFinal()) {
                 content.append(chunk.content());
             }
         }).blockLast();
-        
-        return GatewayModels.GatewayResponse.success(taskId, content.toString(), Map.of("provider", "ollama"));
+
+        return GatewayResponse.success(taskId, content.toString(), Map.of("provider", "ollama"));
     }
-    
+
     @Override
-    public Flux<GatewayModels.GatewayResponseChunk> completeStream(GatewayRequest request) {
+    public Flux<GatewayResponseChunk> completeStream(GatewayRequest request) {
         String model = extractModel(request);
         String prompt = buildPrompt(request);
-        
+
         Map<String, Object> body = Map.of(
             "model", model,
             "prompt", prompt,
@@ -87,9 +87,9 @@ public class OllamaProvider implements AiProvider {
                 "num_predict", 4096
             )
         );
-        
+
         String url = baseUrl + "/api/generate";
-        
+
         return webClient.post()
             .uri(url)
             .contentType(MediaType.APPLICATION_JSON)
@@ -97,20 +97,25 @@ public class OllamaProvider implements AiProvider {
             .retrieve()
             .bodyToFlux(Map.class)
             .map(this::parseOllamaChunk)
-            .onErrorResume(e -> Flux.just(GatewayModels.GatewayResponseChunk.error(request.taskId(), e.getMessage())));
+            .onErrorResume(new java.util.function.Function<Throwable, org.reactivestreams.Publisher<? extends com.bookmind.gateway.core.GatewayResponseChunk>>() {
+                @Override
+                public org.reactivestreams.Publisher<? extends com.bookmind.gateway.core.GatewayResponseChunk> apply(Throwable e) {
+                    return reactor.core.publisher.Flux.just(com.bookmind.gateway.core.GatewayResponseChunk.error(request.taskId(), e.getMessage()));
+                }
+            });
     }
-    
+
     @Override
     public List<float[]> embed(List<String> texts, String model) {
         String embedModel = model != null ? model : "nomic-embed-text";
-        
+
         return texts.stream()
-            .map(text -> {
+            .<float[]>map(text -> {
                 Map<String, Object> body = Map.of(
                     "model", embedModel,
                     "prompt", text
                 );
-                
+
                 Map<String, Object> response = webClient.post()
                     .uri(baseUrl + "/api/embeddings")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -118,17 +123,22 @@ public class OllamaProvider implements AiProvider {
                     .retrieve()
                     .bodyToMono(Map.class)
                     .block();
-                
+
                 if (response != null && response.containsKey("embedding")) {
                     @SuppressWarnings("unchecked")
                     List<Double> embedding = (List<Double>) response.get("embedding");
-                    return embedding.stream().mapToDouble(Double::doubleValue).toArray();
+                    double[] doubles = embedding.stream().mapToDouble(Double::doubleValue).toArray();
+                    float[] floats = new float[doubles.length];
+                    for (int i = 0; i < doubles.length; i++) {
+                        floats[i] = (float) doubles[i];
+                    }
+                    return floats;
                 }
                 return new float[0];
             })
             .toList();
     }
-    
+
     @Override
     public Map<String, Object> getConfigSchema() {
         return Map.of(
@@ -139,51 +149,51 @@ public class OllamaProvider implements AiProvider {
             "maxTokens", Map.of("type", "integer", "default", 4096)
         );
     }
-    
+
     private String extractModel(GatewayRequest request) {
         return (String) request.parameters().getOrDefault("model", "llama3.2:3b");
     }
-    
+
     private String buildPrompt(GatewayRequest request) {
         StringBuilder sb = new StringBuilder();
-        
+
         if (request.parameters().containsKey("systemPrompt")) {
             sb.append("System: ").append(request.parameters().get("systemPrompt")).append("\n\n");
         }
-        
+
         if (request.parameters().containsKey("question")) {
             sb.append("Question: ").append(request.parameters().get("question")).append("\n\n");
         }
-        
+
         if (request.parameters().containsKey("text")) {
             sb.append("Context:\n").append(request.parameters().get("text")).append("\n\n");
         }
-        
+
         sb.append("Answer:");
         return sb.toString();
     }
-    
-    private GatewayModels.GatewayResponseChunk parseOllamaChunk(Map<String, Object> chunk) {
+
+    private GatewayResponseChunk parseOllamaChunk(Map<String, Object> chunk) {
         String response = (String) chunk.get("response");
         boolean done = Boolean.TRUE.equals(chunk.get("done"));
-        
+
         if (response != null && !response.isEmpty()) {
-            return GatewayModels.GatewayResponseChunk.content(
-                java.util.UUID.randomUUID().toString(), 
+            return GatewayResponseChunk.content(
+                java.util.UUID.randomUUID().toString(),
                 response
             );
         }
-        
+
         if (done) {
-            return GatewayModels.GatewayResponseChunk.finalChunk(
+            return GatewayResponseChunk.finalChunk(
                 java.util.UUID.randomUUID().toString(),
                 "",
                 Map.of("provider", "ollama")
             );
         }
-        
-        return GatewayModels.GatewayResponseChunk.status(
-            java.util.UUID.randomUUID().toString(), 
+
+        return GatewayResponseChunk.status(
+            java.util.UUID.randomUUID().toString(),
             "processing"
         );
     }

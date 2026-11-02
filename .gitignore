@@ -49,7 +49,11 @@ localhost.har
 # Backup files
 *.bak
 
+# Kilo / MCP runtime directories
+.behavior-mcp
+.agents/
+.kilo/
+kilo.jsonc
+
 # Project profile (not for git)
 PROJECT_PROFILE.md
-.behavior-mcp
-kilo.jsonc

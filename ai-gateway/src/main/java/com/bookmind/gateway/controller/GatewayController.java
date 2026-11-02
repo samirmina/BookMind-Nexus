@@ -1,11 +1,12 @@
 package com.bookmind.gateway.controller;
 
-import com.bookmind.gateway.core.GatewayModels.GatewayRequest;
-import com.bookmind.gateway.core.GatewayModels.GatewayResponse;
-import com.bookmind.gateway.core.GatewayModels.GatewayResponseChunk;
-import com.bookmind.gateway.core.GatewayModels.ProviderModel;
+import com.bookmind.gateway.core.GatewayRequest;
+import com.bookmind.gateway.core.GatewayResponse;
+import com.bookmind.gateway.core.GatewayResponseChunk;
 import com.bookmind.gateway.core.GatewayService;
 import com.bookmind.gateway.providers.ProviderAdapterFactory;
+import com.bookmind.gateway.providers.ProviderModel;
+import com.bookmind.gateway.telemetry.GatewayTelemetryRecord;
 import com.bookmind.gateway.telemetry.GatewayTelemetryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,46 +25,46 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/gateway")
 public class GatewayController {
-    
+
     private static final Logger log = LoggerFactory.getLogger(GatewayController.class);
-    
+
     private final GatewayService gatewayService;
     private final ProviderAdapterFactory providerFactory;
     private final GatewayTelemetryService telemetryService;
-    
-    public GatewayController(GatewayService gatewayService, 
+
+    public GatewayController(GatewayService gatewayService,
                             ProviderAdapterFactory providerFactory,
                             GatewayTelemetryService telemetryService) {
         this.gatewayService = gatewayService;
         this.providerFactory = providerFactory;
         this.telemetryService = telemetryService;
     }
-    
+
     /**
      * Execute a non-streaming gateway request.
      */
     @PostMapping(value = "/execute", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<GatewayModels.GatewayResponse> execute(@RequestBody GatewayRequest request) {
+    public ResponseEntity<GatewayResponse> execute(@RequestBody GatewayRequest request) {
         log.info("Gateway execute request | taskType={} | session={}", request.taskType(), request.sessionId());
-        
-        GatewayModels.GatewayResponse response = gatewayService.execute(request);
-        
+
+        GatewayResponse response = gatewayService.execute(request);
+
         if ("error".equals(response.status())) {
             return ResponseEntity.badRequest().body(response);
         }
         return ResponseEntity.ok(response);
     }
-    
+
     /**
      * Execute a streaming gateway request.
      */
     @PostMapping(value = "/execute/stream", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<GatewayModels.GatewayResponseChunk> executeStream(@RequestBody GatewayRequest request) {
+    public Flux<GatewayResponseChunk> executeStream(@RequestBody GatewayRequest request) {
         log.info("Gateway streaming request | taskType={} | session={}", request.taskType(), request.sessionId());
-        
+
         return gatewayService.executeStream(request);
     }
-    
+
     /**
      * Generate embeddings.
      */
@@ -71,11 +72,11 @@ public class GatewayController {
     public ResponseEntity<Map<String, Object>> embed(@RequestBody Map<String, Object> request) {
         List<String> texts = (List<String>) request.get("texts");
         String model = (String) request.get("model");
-        
+
         if (texts == null || texts.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "texts array is required"));
         }
-        
+
         try {
             List<float[]> embeddings = gatewayService.embed(texts, (String) request.get("model"));
             return ResponseEntity.ok(Map.of(
@@ -88,7 +89,7 @@ public class GatewayController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     /**
      * Get available providers and models.
      */
@@ -99,33 +100,33 @@ public class GatewayController {
             "models", gatewayService.getAvailableModels()
         ));
     }
-    
+
     /**
      * Get telemetry for a session.
      */
     @GetMapping("/telemetry/session/{sessionId}")
-    public ResponseEntity<List<com.bookmind.gateway.telemetry.GatewayTelemetryEntities.GatewayTelemetryRecord>> getSessionTelemetry(
+    public ResponseEntity<List<GatewayTelemetryRecord>> getSessionTelemetry(
             @PathVariable String sessionId) {
         return ResponseEntity.ok(telemetryService.getSessionTelemetry(sessionId));
     }
-    
+
     /**
-     * Get provider telemetry.
+     * Get telemetry for a provider.
      */
     @GetMapping("/telemetry/provider/{provider}")
-    public ResponseEntity<List<com.bookmind.gateway.telemetry.GatewayTelemetryEntities.GatewayTelemetryRecord>> getProviderTelemetry(
+    public ResponseEntity<List<GatewayTelemetryRecord>> getProviderTelemetry(
             @PathVariable String provider) {
         return ResponseEntity.ok(telemetryService.getProviderTelemetry(provider));
     }
-    
+
     /**
      * Get error telemetry.
      */
     @GetMapping("/telemetry/errors")
-    public ResponseEntity<List<com.bookmind.gateway.telemetry.GatewayTelemetryEntities.GatewayTelemetryRecord>> getErrors() {
+    public ResponseEntity<List<GatewayTelemetryRecord>> getErrors() {
         return ResponseEntity.ok(telemetryService.getErrors());
     }
-    
+
     /**
      * Health check.
      */

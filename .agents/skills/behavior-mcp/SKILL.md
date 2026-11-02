@@ -5,7 +5,7 @@ description: Teaches the agent to use the Behavior MCP server for ~60Hz in-brows
 
 # Behavior Runtime Engine (behavior-mcp)
 
-This skill provides step-by-step guidance and operational patterns for interacting with `@putervision/behavior-mcp` with project slug `"book-mind-nexus"`.
+This skill provides step-by-step guidance and operational patterns for interacting with `@putervision/behavior-mcp` with project slug `"book-assistant-lite"`.
 
 ---
 
