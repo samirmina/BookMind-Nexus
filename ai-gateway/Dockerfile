@@ -4,7 +4,8 @@ WORKDIR /app
 COPY pom.xml .
 COPY ai-gateway/pom.xml ai-gateway/
 COPY ai-gateway/src ./ai-gateway/src
-COPY pom.xml pom.xml
+# Remove book-mind-nexus module from root POM (not in Docker context)
+RUN sed -i '/<module>book-mind-nexus<\/module>/d' pom.xml
 RUN mvn package -pl ai-gateway -am -DskipTests
 
 # Run stage
