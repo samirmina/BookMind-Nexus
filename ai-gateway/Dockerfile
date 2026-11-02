@@ -4,7 +4,7 @@ WORKDIR /app
 COPY pom.xml .
 COPY ai-gateway/pom.xml ai-gateway/
 COPY ai-gateway/src ./ai-gateway/src
-COPY book-assistant-lite/pom.xml book-assistant-lite/
+COPY pom.xml pom.xml
 RUN mvn package -pl ai-gateway -am -DskipTests
 
 # Run stage
