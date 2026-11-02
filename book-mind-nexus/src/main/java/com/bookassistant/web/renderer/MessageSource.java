@@ -1,16 +1,9 @@
 package com.bookassistant.web.renderer;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Locale;
-import java.util.Properties;
 import java.util.ResourceBundle;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 public final class MessageSource {
-    private static final ConcurrentMap<String, ResourceBundle> BUNDLE_CACHE = new ConcurrentHashMap<>();
-
     private MessageSource() {}
 
     public static String get(String key, Locale locale) {
@@ -18,17 +11,24 @@ public final class MessageSource {
     }
 
     public static String get(String key, Locale locale, Object... args) {
-        ResourceBundle bundle = BUNDLE_CACHE.computeIfAbsent(locale.toString(), l -> {
-            try {
-                return ResourceBundle.getBundle("messages", locale);
-            } catch (Exception e) {
-                return ResourceBundle.getBundle("messages", Locale.ENGLISH);
-            }
-        });
-        String msg;
+        ResourceBundle bundle = null;
         try {
-            msg = bundle.getString(key);
+            bundle = ResourceBundle.getBundle("messages", locale);
         } catch (Exception e) {
+            try {
+                bundle = ResourceBundle.getBundle("messages", Locale.ENGLISH);
+            } catch (Exception e2) {
+                bundle = null;
+            }
+        }
+        String msg;
+        if (bundle != null) {
+            try {
+                msg = bundle.getString(key);
+            } catch (Exception e) {
+                msg = key;
+            }
+        } else {
             msg = key;
         }
         if (args.length > 0) {
@@ -38,17 +38,23 @@ public final class MessageSource {
     }
 
     public static String getRaw(String key, Locale locale) {
-        ResourceBundle bundle = BUNDLE_CACHE.computeIfAbsent(locale.toString(), l -> {
-            try {
-                return ResourceBundle.getBundle("messages", locale);
-            } catch (Exception e) {
-                return ResourceBundle.getBundle("messages", Locale.ENGLISH);
-            }
-        });
+        ResourceBundle bundle = null;
         try {
-            return bundle.getString(key);
+            bundle = ResourceBundle.getBundle("messages", locale);
         } catch (Exception e) {
-            return key;
+            try {
+                bundle = ResourceBundle.getBundle("messages", Locale.ENGLISH);
+            } catch (Exception e2) {
+                bundle = null;
+            }
         }
+        if (bundle != null) {
+            try {
+                return bundle.getString(key);
+            } catch (Exception e) {
+                return key;
+            }
+        }
+        return key;
     }
 }
