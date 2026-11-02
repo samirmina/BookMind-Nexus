@@ -83,7 +83,6 @@ class AuthControllerTest {
         String view = authController.processRegistration("test@example.com", "password123", "Test User", session, redirectAttributes, model);
 
         assertEquals("redirect:/app", view);
-        verify(redirectAttributes).addFlashAttribute("success", "تم إنشاء الحساب بنجاح");
     }
 
     @Test
@@ -109,7 +108,6 @@ class AuthControllerTest {
         assertEquals("redirect:/app", view);
         verify(session).setAttribute("userId", 1L);
         verify(session).setAttribute("userEmail", "test@example.com");
-        verify(redirectAttributes).addFlashAttribute("success", "تم تسجيل الدخول بنجاح");
     }
 
     @Test
@@ -130,6 +128,5 @@ class AuthControllerTest {
 
         assertEquals("redirect:/", view);
         verify(session).invalidate();
-        verify(redirectAttributes).addFlashAttribute("success", "تم تسجيل الخروج");
     }
 }

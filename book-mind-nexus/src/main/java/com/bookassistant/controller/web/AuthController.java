@@ -5,10 +5,10 @@ import com.bookassistant.service.auth.UserService;
 import com.bookassistant.util.ErrorMessageSanitizer;
 import com.bookassistant.util.LoggingUtils;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,12 +19,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 /**
  * Handles user authentication: registration, login, and logout.
  * <p>
- * <b>What:</b> Provides web endpoints for account creation and session-based authentication.
+ * <b>What:</b> Provides web endpoints for account creation and session-based
+ * authentication. View resolution is handled by {@code JavaHtmlViewResolver}.
  * <p>
- * <b>Why:</b> Required to identify real users (replacing the hardcoded demo-user) and
- * to enforce ownership of books and linked accounts.
- * <p>
- * <b>Where:</b> Implements the web-layer authentication flow per {@code PROJECT_RULES.md} Section 1.
+ * <b>Why:</b> Required to identify real users and enforce ownership of books
+ * and linked accounts.
  */
 @Controller
 public class AuthController {
@@ -41,11 +40,6 @@ public class AuthController {
         this.messageSource = messageSource;
     }
 
-    /**
-     * Handles {@code GET /register}.
-     * <p>
-     * <b>Where:</b> Shows the registration form.
-     */
     @GetMapping("/register")
     public String showRegisterPage(Model model) {
         LoggingUtils.enter(log, "showRegisterPage");
@@ -54,11 +48,6 @@ public class AuthController {
         return "auth/register";
     }
 
-    /**
-     * Handles {@code POST /register}.
-     * <p>
-     * <b>Where:</b> Processes registration form submission.
-     */
     @PostMapping("/register")
     public String processRegistration(@RequestParam("email") String email,
                                       @RequestParam("password") String password,
@@ -87,11 +76,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * Handles {@code GET /login}.
-     * <p>
-     * <b>Where:</b> Shows the login form.
-     */
     @GetMapping("/login")
     public String showLoginPage(Model model) {
         LoggingUtils.enter(log, "showLoginPage");
@@ -100,11 +84,6 @@ public class AuthController {
         return "auth/login";
     }
 
-    /**
-     * Handles {@code POST /login}.
-     * <p>
-     * <b>Where:</b> Processes login form submission.
-     */
     @PostMapping("/login")
     public String processLogin(@RequestParam("email") String email,
                                @RequestParam("password") String password,
@@ -132,11 +111,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * Handles {@code POST /logout}.
-     * <p>
-     * <b>Where:</b> Destroys the user's HTTP session.
-     */
     @PostMapping("/logout")
     public String processLogout(HttpSession session, RedirectAttributes redirectAttributes) {
         LoggingUtils.enter(log, "processLogout");
@@ -144,10 +118,6 @@ public class AuthController {
         Long userId = (Long) session.getAttribute(SESSION_USER_ID);
         session.invalidate();
         log.info("User logged out | userId={}", userId);
-        String logoutSuccess = messageSource.getMessage("logout.success", null, LocaleContextHolder.getLocale());
-        redirectAttributes.addFlashAttribute("success", logoutSuccess);
         return "redirect:/";
     }
 }
-
-

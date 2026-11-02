@@ -1,8 +1,8 @@
 package com.bookassistant.controller.web;
 
+import com.bookassistant.session.BookSession;
 import com.bookassistant.service.infrastructure.CacheService;
 import com.bookassistant.service.infrastructure.CacheService.CacheIndex;
-import com.bookassistant.session.BookSession;
 import com.bookassistant.util.LoggingUtils;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.GetMapping;
  * Serves the main application shell and the about page.
  * <p>
  * <b>What:</b> Populates the model with session state (book loaded, language,
- * cache index) before returning the single-page view.
+ * cache index) before returning the view name. View resolution is handled by
+ * {@code JavaHtmlViewResolver}, which renders pure Java HTML output.
  * <p>
- * <b>Why:</b> Single responsibility per {@code PROJECT_RULES.md} Section 1: this
- * controller is the sole producer of the home-page model context.
+ * <b>Why:</b> Single responsibility per {@code PROJECT_RULES.md} Section 1.
  */
 @Controller
 public class PageController {
@@ -29,12 +29,6 @@ public class PageController {
     private final BookSession bookSession;
     private final CacheService cacheService;
 
-    /**
-     * Creates the controller with required dependencies.
-     *
-     * @param bookSession   session-scoped book state
-     * @param cacheService  figure cache for matching images to the current book
-     */
     public PageController(BookSession bookSession, CacheService cacheService) {
         if (bookSession == null) throw new IllegalArgumentException("BookSession must not be null");
         this.bookSession = bookSession;
@@ -42,15 +36,6 @@ public class PageController {
         log.info("PageController initialized");
     }
 
-    /**
-     * Handles {@code GET /} and returns the landing page for anonymous users.
-     * <p>
-     * <b>Where:</b> Authenticated users are redirected to {@code /app} so they
-     * never see the marketing landing page.
-     *
-     * @param session the HTTP session
-     * @return view name or redirect
-     */
     @GetMapping("/")
     public String showLandingPage() {
         log.debug("Landing page requested");
