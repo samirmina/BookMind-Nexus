@@ -58,8 +58,8 @@ public final class HomePageRenderer {
 
     private static void renderHero(HtmlBuilder section, PageContext ctx) {
         section.div(inner -> inner
-            .div(d -> d.text(ctx.getMessage("home.hero.ar"))).attr("class", "hero-ar").attr("th:if", "${uiLanguage == 'ar'}")
-            .div(d -> d.text(ctx.getMessage("home.hero.en"))).attr("class", "hero-en").attr("th:if", "${uiLanguage != 'ar'}")
+            .div(d -> d.text(ctx.getMessage("home.hero.ar"))).attr("class", "hero-ar")
+            .div(d -> d.text(ctx.getMessage("home.hero.en"))).attr("class", "hero-en")
             .h1(ctx.getMessage("home.hero.title")).attr("class", "hero-title")
             .div(actions -> {
                 if (!ctx.isLoggedIn()) {
