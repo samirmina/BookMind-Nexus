@@ -49,6 +49,7 @@ public class ConsoleCaptureService {
 
     private PrintStream originalOut;
     private PrintStream originalErr;
+    private volatile boolean databaseAvailable = true;
 
     public ConsoleCaptureService(ConsoleEntryRepository consoleEntryRepository) {
         this.consoleEntryRepository = consoleEntryRepository;
@@ -132,11 +133,15 @@ public class ConsoleCaptureService {
         final String finalMessage = line;
 
         executor.execute(() -> {
+            if (!databaseAvailable) {
+                return;
+            }
             try {
                 ConsoleEntry entry = new ConsoleEntry(finalLevel, finalComponent, finalMessage);
                 consoleEntryRepository.save(entry);
             } catch (Exception e) {
-                log.error("Failed to save console entry | error={}", e.getMessage(), e);
+                databaseAvailable = false;
+                log.warn("Database unavailable for console capture, skipping subsequent entries | error={}", e.getMessage());
             }
         });
     }
