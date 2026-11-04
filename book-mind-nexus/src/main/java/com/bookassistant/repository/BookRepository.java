@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Data access for uploaded books.
@@ -18,6 +19,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findByUserId(Long userId);
     List<Book> findByUserIdAndBookFolder(Long userId, String bookFolder);
     List<Book> findByUserIdAndTitle(Long userId, String title);
+    Optional<Book> findByIdAndUserId(Long id, Long userId);
     @Query(value = "SELECT * FROM books WHERE user_id = :userId AND :tag = ANY(tags)", nativeQuery = true)
     List<Book> findByTagsContainingAndUserId(@Param("tag") String tag, @Param("userId") Long userId);
 }

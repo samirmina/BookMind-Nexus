@@ -1,144 +1,219 @@
 # BookMind Nexus
 
-**Smart Book Extractor** — AI-powered PDF book extraction for study and research.
+AI-powered PDF book extraction and study platform. Pure Java 21 backend built with Spring Boot 3, backed by PostgreSQL 16 + pgvector, with an optional AI Gateway microservice supporting multiple LLM providers.
 
-BookMind Nexus extracts verbatim passages from uploaded books so you read the author's actual words with page citations, not an AI's interpretation. Every extracted passage is traceable to its exact source page.
+BookMind Nexus extracts verbatim passages from uploaded books so you read the author's actual words with page citations, not an AI interpretation. Every extracted passage is traceable to its exact source page.
 
 ## Tech Stack
-
-Pure Java backend application built with:
 
 | Layer | Technology |
 |-------|-----------|
 | Language | Java 21 |
-| Framework | Spring Boot 3 |
+| Framework | Spring Boot 3.5 |
 | Build | Maven |
 | Database | PostgreSQL 16 + pgvector |
-| Container | Docker |
-
-## What It Does
-
-- **Extraction-first**: Pulls exact sentences and paragraphs from uploaded PDFs, preserving original wording and page citations
-- **Verbatim Q&A**: Ask questions about your book; get back the exact passages that answer them
-- **Guided Summary**: Curates passages into Core Content, Key Insights, and Notable Passages
-- **Concept Maps & Risk Flags**: Structure extracted content without inventing new material
-- **Reality Checks**: Validate extracted claims against the source text
-- **Comprehension Tests**: Generate study questions from book content
-- **Learning Paths**: Build study plans from book content
-- **Multi-language UI**: 13 languages supported (book content stays in its original language)
-- **LaTeX math rendering**: Mathematical notation preserved exactly as written
-- **Bring Your Own Key (BYOK)**: Configure your own AI provider per account (Ollama local, OpenAI, Anthropic, Google Vertex AI, Cohere, or any OpenAI-compatible endpoint)
-- **Per-user AI provider settings**: Each user configures their own AI credentials; keys are stored encrypted and never shared
-- **OAuth Integration**: Notion account linking for external platform sync; Google OAuth for authentication
-- **Passwordless authentication**: Email magic links and OAuth — no passwords stored
-- **Telemetry & Admin Console**: System health monitoring, error tracking, and runtime logs
+| AI Gateway | Spring Boot 3.5 (Ollama, OpenAI, Anthropic, Google Vertex) |
+| Container | Docker / Docker Compose |
+| PDF parsing | Apache PDFBox 3.0.2 |
 
 ## Architecture
 
 ```
 BookMind-Nexus/
-├── Dockerfile                 # Spring Boot app container image
-├── docker-compose.yml         # Multi-service orchestration (PostgreSQL + app)
-├── .gitignore                 # Git ignore rules
-├── pom.xml                    # Maven build file
-├── README.md                  # This file
-├── LICENSE                    # MIT License
-├── book-mind-nexus/           # Main web application module
+├── docker-compose.yml              # Multi-service orchestration
+├── pom.xml                         # Maven parent (multi-module)
+├── README.md                       # This file
+├── book-mind-nexus/                # Main web application
+│   ├── Dockerfile
 │   ├── pom.xml
-│   └── src/
-│       └── main/java/com/bookassistant/
-│           ├── controller/    # MVC controllers (web, AI, study, admin)
-│           ├── service/       # Business logic layer
-│           ├── entity/        # JPA domain entities
-│           ├── repository/    # Spring Data JPA repositories
-│           ├── web/renderer/  # Pure Java HTML renderer (HtmlBuilder, PageContext, etc.)
-│           └── ...            # Additional packages
-├── ai-gateway/                # AI microservice module (Spring Boot)
+│   └── src/main/java/com/bookassistant/
+│       ├── BookAssistantLiteApplication.java
+│       ├── aop/                    # Aspect-oriented cross-cutting concerns
+│       ├── config/                 # Security, AI props, headers, rate limiting, async
+│       ├── controller/             # MVC controllers (web, AI, study, admin)
+│       │   ├── admin/              # Admin console endpoints
+│       │   ├── ai/                 # QA, search, summary, analysis
+│       │   ├── book/               # Upload, extraction progress (SSE)
+│       │   ├── study/              # Comprehension, action plan
+│       │   ├── ui/                 # (reserved)
+│       │   └── web/                # Auth, OAuth, account, settings, outputs
+│       ├── dto/                    # Data transfer objects
+│       ├── entity/                 # JPA domain entities (User, Book, BookChunk, …)
+│       ├── model/                  # BookData, cache, page models
+│       ├── repository/             # Spring Data JPA repositories
+│       ├── security/               # Token encryption, encrypted string converter
+│       ├── service/                # Business logic (AI, auth, file, infra, integration, rag, text)
+│       ├── session/                # Session-scoped book state
+│       ├── tool/                   # (reserved)
+│       ├── util/                   # Logging, sanitization, string utils
+│       └── web/                    # (reserved)
+│       src/main/resources/
+│           ├── application*.properties
+│           ├── data.sql            # Seed data (development only)
+│           └── messages_*.properties
+├── ai-gateway/                     # AI microservice
+│   ├── Dockerfile
 │   ├── pom.xml
-│   └── src/
-│       └── main/java/com/bookmind/gateway/
-│           ├── core/          # Gateway models and service
-│           ├── providers/     # AI provider adapters (Ollama, OpenAI, Anthropic, Google Vertex)
-│           ├── controller/    # Gateway REST endpoints
-│           └── telemetry/     # Telemetry recording
-└── src/                       # Root resources (config, SQL schemas, messages)
+│   └── src/main/java/com/bookmind/gateway/
+│       ├── core/                   # Gateway models & orchestration service
+│       ├── controller/             # Gateway REST endpoints
+│       ├── providers/              # Ollama, OpenAI, Anthropic, Google Vertex adapters
+│       ├── telemetry/              # Gateway telemetry recording
+├── src/                            # Root resources (config, SQL schemas, messages)
 ```
 
-## Quick Start (Docker)
+## Prerequisites
+
+- Java 21 (JDK) for local builds
+- Maven 3.9+
+- Docker and Docker Compose (for containerized deployment)
+- PostgreSQL 16 with the `pgvector` extension (production)
+- An AI provider: Ollama (local), OpenAI, Anthropic, or Google Vertex AI
+
+## Configuration
+
+Copy the environment template and fill in real values before running:
 
 ```bash
-# Clone the repo
-git clone https://github.com/samirmina/BookMind-Nexus.git
-cd BookMind-Nexus
-
-# Copy environment config
 cp .env.example .env
-
-# Start all services
-docker compose up --build
-
-# Access the app at http://localhost:8083
+# Edit .env with your values
 ```
 
-### Docker Services
+Key environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVER_PORT` | App HTTP port | `8083` |
+| `SESSION_TIMEOUT_SECONDS` | Cookie/session timeout (s) | `1800` |
+| `APP_ENCRYPTION_KEY` | **Required.** Base64-encoded 256-bit key for OAuth token encryption | (none) |
+| `DB_USERNAME` / `DB_PASSWORD` / `DB_NAME` | PostgreSQL credentials | `postgres` / (none) / `book_assistant` |
+| `AI_BASE_URL` | AI provider endpoint | `http://localhost:11434/api/generate` |
+| `AI_MODEL` | Chat model | `phi3.5:latest` |
+| `OLLAMA_API_KEY` | API key for non-local AI providers | (none) |
+| `NOTION_OAUTH_CLIENT_ID` / `SECRET` / `REDIRECT_URI` | Notion OAuth credentials | (none) |
+| `SPRING_PROFILES_ACTIVE` | Spring profile (`local`, `docker`, `prod`) | `docker` |
+
+Generate the encryption key:
+
+```bash
+APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
+```
+
+## Running with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Services:
 
 | Service | Port |
 |---------|------|
 | BookMind Nexus App | 8083 |
 | AI Gateway | 8081 |
-| PostgreSQL + pgvector | 5432 |
-| Ollama (local AI) | 11434 |
+| Ollama (local LLM) | 11434 |
+| Pix2Text (PDF extraction) | 8080 |
 
-## Configuration
+The `postgres` service is intentionally **commented out** in `docker-compose.yml`. You must provision PostgreSQL 16 + pgvector separately and supply `DB_*` environment variables before the application can start. The app expects the `users`, `books`, `book_chunks`, `linked_accounts`, `external_notes`, `reading_progress`, and `book_outputs` tables to exist (see `data.sql` for the development seed only — it is not a schema).
 
-Edit `book-mind-nexus/src/main/resources/application.properties` for local development or `application-docker.properties` for Docker deployment.
+Access the app at `http://localhost:8083`.
 
-Key settings:
-- `app.ai.model` — AI model (default: `llama3.2:3b`)
-- `app.extraction.mode` — `pix2text`, `text-layer`, or `model-only`
-- `spring.datasource.url` — PostgreSQL connection string
+## Running locally
 
-### Environment Variables (.env)
-
-```
-SERVER_PORT=8083
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-AI_BASE_URL=http://localhost:11434/api/generate
-AI_MODEL=llama3.2:3b
-AI_API_KEY=
-AI_TIMEOUT_SECONDS=86400
+```bash
+./mvnw -pl book-mind-nexus spring-boot:run \
+  -Dspring-boot.run.profiles=local \
+  -DAPP_ENCRYPTION_KEY=<base64-256-bit-key>
 ```
 
-## Database
+Set `SPRING_PROFILES_ACTIVE=local` and provide `DB_*` and `APP_ENCRYPTION_KEY` via environment or `application-local.properties`.
 
-PostgreSQL with the `pgvector` extension for semantic search. Schema is initialized automatically on startup via `schema.sql` and migration scripts.
+## Security
 
-Key tables:
-- `users` — User accounts
-- `user_ai_config` — Per-user AI provider configuration
-- `books` — Uploaded books
-- `book_chunks` — RAG chunks with vector embeddings
-- `linked_accounts` — OAuth linked accounts
+- **OAuth tokens at rest**: `access_token` and `refresh_token` are encrypted with AES-GCM using `APP_ENCRYPTION_KEY`. The app refuses to start if the key is missing or not exactly 256 bits.
+- **Passwords**: stored as BCrypt hashes; minimum length 6 characters.
+- **Sessions**: `HttpOnly`, `Secure`, `SameSite=Strict` cookies; session fixation migration on login; max one session per user.
+- **Security headers**: CSP, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Strict-Transport-Security`.
+- **Rate limiting**: sliding-window limit on `/login` and `/register` (10 attempts per minute per client IP). Behind a trusted proxy, set `RATE_LIMIT_TRUST_FORWARDED=true` and ensure the proxy is the only source of `X-Forwarded-For`.
+- **SSRF guard**: `app.ai.base-url` is validated; private/link-local/RFC1918 targets are rejected unless an explicit loopback (`localhost`, `127.0.0.1`, `::1`).
+- **Prompt injection**: user-supplied content is scanned for instruction-override patterns before being sent to the AI model.
+- **Uploads**: PDF filenames are sanitized; resolved write paths are confined to the configured PDF source directory. 50 MB upload cap.
+- **XSS mitigation**: AI/book content rendered through an allow-listed Markdown-to-HTML pipeline; single quotes escaped; `javascript:` and `data:` links neutralized.
+- **IDOR**: book, output, and linked-account operations verify ownership by the authenticated user.
 
-## AI Providers
+## Known limitations / deployment notes
 
-Each user can configure their own AI provider:
+- The `postgres` service is commented out in `docker-compose.yml`; provision PostgreSQL + pgvector externally.
+- `data.sql` seeds a demo user (`demo@bookassistant.local`) and is intended for development only — do not run it against production.
+- Sessions are in-memory; horizontal scaling requires external session storage (Spring Session + Redis).
+- AI provider API keys passed in URLs (e.g. Google Vertex `?key=`) may appear in proxy/load-balancer access logs.
+- There is no book-delete endpoint; uploaded PDF files are not automatically reclaimed.
 
-| Provider | Base URL | Example Models |
-|----------|----------|----------------|
-| Ollama (Local) | `http://localhost:11434` | `llama3.2:3b`, `nomic-embed-text` |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o`, `gpt-4o-mini` |
-| Anthropic (Claude) | `https://api.anthropic.com` | `claude-3-5-sonnet` |
-| Google Vertex AI / Gemini | Vertex endpoint | `gemini-1.5-pro`, `gemini-1.5-flash` |
-| OpenAI-Compatible | Your endpoint | Any OpenAI-compatible model |
+## API endpoints
 
-## Authentication
+Auth (session-based):
+- `GET/POST /register`, `GET/POST /login`, `POST /logout`
 
-- **Passwordless**: Email magic links and Google OAuth 2.0 — no passwords stored
-- **Per-user API keys**: Stored encrypted in database, never logged
-- **Session management**: HttpOnly cookies, 30-minute timeout
+Books:
+- `POST /upload` — multipart PDF upload; returns a job ID for SSE progress
+- `GET /upload/progress/{jobId}` — Server-Sent Events progress stream
+- `POST /books/{bookId}/load` — load a book into the session
+
+AI / Study:
+- `POST /qa` — question answering
+- `POST /semantic-search`
+- `POST /summary/general`, `POST /summary/pages`
+- `POST /reality-check`, `POST /concept-map`, `POST /risk-flags`
+- `POST /comprehension`, `POST /action-plan`, `POST /learning-path`
+
+Accounts / OAuth:
+- `GET/POST /accounts`, `POST /accounts/link`, `POST /accounts/unlink`, `POST /accounts/sync`
+- `GET /oauth2/authorize?platform=notion`, `GET /oauth2/callback/{platform}`
+- `GET/POST /settings/extraction-mode`
+
+AI Gateway:
+- `POST /api/gateway/execute`, `POST /api/gateway/execute/stream`
+- `POST /api/gateway/embed`, `GET /api/gateway/providers`, `GET /api/gateway/health`
+
+## Contributing
+
+Conventional Commits are required (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`). Work on `feature` branches off `develop`; never commit directly to `main`. API keys and passwords must never appear in the code.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT License.
+
+## Client-Side Tool: BookClientTool
+
+For large book files that are impractical to upload, `BookClientTool` runs entirely on the client
+machine. It reads a PDF from the local filesystem, extracts text from a user-specified page range,
+sends it to a chosen AI service (Ollama, OpenAI, Anthropic, or Google Vertex), and writes the
+result to an output file. The web application invokes the tool and presents the result to the user
+for saving — no book data is ever uploaded to the server.
+
+```bash
+# Build
+./mvnw -pl book-mind-nexus package -DskipTests
+
+# Run (example: pages 1-10 of a book via Ollama)
+java -cp book-mind-nexus/target/classes:... \
+  com.bookassistant.tool.BookClientTool \
+  /path/to/book.pdf 1 10 ollama http://localhost:11434 /path/to/output.txt
+```
+
+CLI arguments:
+| Position | Argument | Description |
+|----------|----------|-------------|
+| 1 | `book-path` | Absolute path to the source PDF |
+| 2 | `start-page` | 1-based inclusive start page |
+| 3 | `end-page` | 1-based inclusive end page |
+| 4 | `ai-service` | `ollama`, `openai`, `anthropic`, or `google-vertex` |
+| 5 | `api-key` | API key for the selected service (or Ollama base URL) |
+| 6 | `output-file` | Path where the result will be written |
+
+The tool requires PDFBox (already a project dependency) and Jackson for JSON parsing. It uses
+`java.net.http.HttpClient` with bounded connect (10s) and read (300s) timeouts.
+
+## License
+
+MIT License.

@@ -1,6 +1,15 @@
 package com.bookassistant.entity;
 
-import jakarta.persistence.*;
+import com.bookassistant.security.EncryptedStringConverter;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
@@ -31,15 +40,18 @@ public class LinkedAccount {
     @Column(name = "account_name", length = 255)
     private String accountName;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "access_token", columnDefinition = "TEXT")
     private String accessToken;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;
 
     @Column(name = "token_expiry")
     private LocalDateTime tokenExpiry;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(columnDefinition = "TEXT")
     private String metadata;
 

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.regex.Pattern;
 
 /**
  * Handles OAuth 2.0 authorization flows for external account linking.
@@ -94,8 +95,7 @@ public class OAuthController {
                           Model model) {
         LoggingUtils.enter(log, "callback", "platform", platform);
 
-        String redirectUrl = (String) session.getAttribute(REDIRECT_ATTRIBUTE);
-        if (redirectUrl == null) redirectUrl = "/accounts";
+        String redirectUrl = resolveRedirectUrl(session);
 
         if (error != null) {
             log.warn("OAuth error from provider: {}", error);
@@ -144,5 +144,23 @@ public class OAuthController {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * Resolves the OAuth redirect URL from the session, validating it is a local,
+     * relative path to prevent open-redirect attacks.
+     */
+    private static final Pattern SAFE_REDIRECT_PATTERN = Pattern.compile("^/[a-zA-Z0-9_./?=&%-]*$");
+
+    private String resolveRedirectUrl(HttpSession session) {
+        String redirectUrl = (String) session.getAttribute(REDIRECT_ATTRIBUTE);
+        if (redirectUrl == null || redirectUrl.isBlank()) {
+            return "/accounts";
+        }
+        if (!SAFE_REDIRECT_PATTERN.matcher(redirectUrl).matches()) {
+            log.warn("Unsafe redirect URL ignored: {}", redirectUrl);
+            return "/accounts";
+        }
+        return redirectUrl;
     }
 }

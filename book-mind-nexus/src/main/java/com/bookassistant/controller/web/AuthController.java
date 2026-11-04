@@ -4,6 +4,7 @@ import com.bookassistant.entity.User;
 import com.bookassistant.service.auth.UserService;
 import com.bookassistant.util.ErrorMessageSanitizer;
 import com.bookassistant.util.LoggingUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +53,7 @@ public class AuthController {
     public String processRegistration(@RequestParam("email") String email,
                                       @RequestParam("password") String password,
                                       @RequestParam(value = "name", required = false) String name,
+                                      HttpServletRequest request,
                                       HttpSession session,
                                       RedirectAttributes redirectAttributes,
                                       Model model) {
@@ -59,6 +61,8 @@ public class AuthController {
 
         try {
             User user = userService.register(email, password, name);
+            session.invalidate();
+            session = request.getSession(true);
             session.setAttribute(SESSION_USER_ID, user.getId());
             session.setAttribute(SESSION_USER_EMAIL, user.getEmail());
             log.info("Registration successful | userId={} | email={}", user.getId(), user.getEmail());
@@ -87,6 +91,7 @@ public class AuthController {
     @PostMapping("/login")
     public String processLogin(@RequestParam("email") String email,
                                @RequestParam("password") String password,
+                               HttpServletRequest request,
                                HttpSession session,
                                RedirectAttributes redirectAttributes,
                                Model model) {
@@ -94,6 +99,8 @@ public class AuthController {
 
         try {
             User user = userService.login(email, password);
+            session.invalidate();
+            session = request.getSession(true);
             session.setAttribute(SESSION_USER_ID, user.getId());
             session.setAttribute(SESSION_USER_EMAIL, user.getEmail());
             log.info("Login successful | userId={} | email={}", user.getId(), user.getEmail());

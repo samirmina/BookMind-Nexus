@@ -41,9 +41,9 @@ public class ProjectDirectoryInitializer implements ApplicationRunner {
             @Value("${app.cache-dir:external/cache}") String cacheDir,
             @Value("${app.logs-dir:external/logs}") String logsDir,
             @Value("${app.upload-dir:external/tmp}") String uploadDir,
-            @Value("${app.storage-dir:D:/BookMind-Nexus/storage/books}") String storageDir,
-            @Value("${app.screenshots-dir:D:/BookMind-Nexus/ui-screenshots}") String screenshotsDir,
-            @Value("${app.pdf-source-dir:D:/BookMind-Nexus/external/pdfs}") String pdfSourceDir) {
+            @Value("${app.storage-dir:storage/books}") String storageDir,
+            @Value("${app.screenshots-dir:ui-screenshots}") String screenshotsDir,
+            @Value("${app.pdf-source-dir:external/pdfs}") String pdfSourceDir) {
         this.cacheDir = cacheDir;
         this.logsDir = logsDir;
         this.uploadDir = uploadDir;

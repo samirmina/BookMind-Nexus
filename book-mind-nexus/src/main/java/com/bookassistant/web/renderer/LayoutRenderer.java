@@ -68,6 +68,7 @@ public final class LayoutRenderer {
                             d.a("/outputs", a -> a.text(ctx.getMessage("navbar.outputs")))
                                 .attr("class", "btn btn-outline-nova btn-sm");
                             d.form("/logout", "post", f -> f
+                                .input("hidden", ctx.csrfParameterName(), "value", ctx.csrfToken())
                                 .button(btn -> btn.text(ctx.getMessage("navbar.logout")))
                                 .attr("class", "nav-cta-secondary")
                                 .attr("type", "submit")

@@ -1,5 +1,6 @@
 package com.bookassistant.entity;
 
+import com.bookassistant.security.EncryptedStringConverter;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -32,11 +33,13 @@ public class ExternalNote {
     private String platformNoteId;
 
     @Column(columnDefinition = "TEXT")
+    @Convert(converter = EncryptedStringConverter.class)
     private String content;
 
     @Column(length = 500)
     private String title;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(length = 1000)
     private String url;
 

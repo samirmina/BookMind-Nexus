@@ -3,6 +3,7 @@ package com.bookassistant.controller.ai;
 import com.bookassistant.dto.PageSummaryRequest;
 import com.bookassistant.model.BookData;
 import com.bookassistant.model.PageData;
+import com.bookassistant.repository.BookRepository;
 import com.bookassistant.service.ai.AiService;
 import com.bookassistant.service.file.OnDemandExtractionService;
 import com.bookassistant.service.infrastructure.CacheService;
@@ -58,6 +59,9 @@ class SummaryControllerTest {
     private OnDemandExtractionService onDemandExtractionService;
 
     @Mock
+    private BookRepository bookRepository;
+
+    @Mock
     private MessageSource messageSource;
 
     @Mock
@@ -82,6 +86,7 @@ class SummaryControllerTest {
         lenient().when(session.getAttribute("userId")).thenReturn(1L);
         lenient().when(aiService.truncateToTokens(any(String.class), anyInt())).thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(aiService.getAnswerFromAi(any(String.class), any(String.class), any(String.class))).thenReturn("summary text");
+        lenient().when(bookRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(new com.bookassistant.entity.Book()));
         lenient().when(markdownService.convertMarkdownToHtml(any(String.class))).thenReturn("<p>summary text</p>");
         lenient().when(textDirectionService.createFormattedResponse(any(String.class), any(String.class)))
                 .thenReturn(formattedResponse);

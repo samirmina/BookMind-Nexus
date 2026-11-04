@@ -10,8 +10,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -51,7 +51,10 @@ public class OAuthService {
 
     public OAuthService(LinkedAccountRepository linkedAccountRepository) {
         this.linkedAccountRepository = linkedAccountRepository;
-        this.restTemplate = new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(30_000);
+        this.restTemplate = new RestTemplate(factory);
     }
 
     /**
@@ -62,7 +65,6 @@ public class OAuthService {
      * @param userId       the current user ID
      * @return the linked account with tokens stored
      */
-    @Transactional
     public LinkedAccount exchangeCodeForToken(String platform, String authCode, Long userId) {
         LoggingUtils.enter(log, "exchangeCodeForToken", "platform", platform);
 
@@ -127,9 +129,9 @@ public class OAuthService {
             return saved;
 
         } catch (org.springframework.web.client.HttpClientErrorException e) {
-            log.error("Token exchange failed | platform={} | userId={} | status={} | body={}", 
-                platform, userId, e.getStatusCode(), e.getResponseBodyAsString());
-            throw new RuntimeException("Token exchange failed: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
+            log.error("Token exchange failed | platform={} | userId={} | status={}", 
+                platform, userId, e.getStatusCode());
+            throw new RuntimeException("Token exchange failed: " + e.getStatusCode(), e);
         } catch (Exception e) {
             log.error("Token exchange failed | platform={} | userId={} | error={}", platform, userId, e.getMessage(), e);
             throw new RuntimeException("Token exchange failed: " + e.getMessage(), e);

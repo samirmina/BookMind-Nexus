@@ -17,6 +17,8 @@ public final class PageContext {
     private final String bookLanguage;
     private final String uiLanguage;
     private final String extractionMode;
+    private final String csrfParameterName;
+    private final String csrfToken;
     private final Map<String, Object> attributes = new HashMap<>();
 
     private PageContext(Builder b) {
@@ -32,6 +34,8 @@ public final class PageContext {
         this.bookLanguage = b.bookLanguage;
         this.uiLanguage = b.uiLanguage;
         this.extractionMode = b.extractionMode;
+        this.csrfParameterName = b.csrfParameterName;
+        this.csrfToken = b.csrfToken;
         this.attributes.putAll(b.attributes);
     }
 
@@ -55,6 +59,8 @@ public final class PageContext {
     public String bookLanguage() { return bookLanguage; }
     public String uiLanguage() { return uiLanguage; }
     public String extractionMode() { return extractionMode; }
+    public String csrfParameterName() { return csrfParameterName; }
+    public String csrfToken() { return csrfToken; }
     public Object attr(String key) { return attributes.get(key); }
     public PageContext attr(String key, Object value) {
         attributes.put(key, value);
@@ -78,6 +84,8 @@ public final class PageContext {
         private String bookLanguage = "en";
         private String uiLanguage = "en";
         private String extractionMode = "model-only";
+        private String csrfParameterName = "_csrf";
+        private String csrfToken;
         private final Map<String, Object> attributes = new HashMap<>();
 
         public Builder lang(String lang) { this.lang = lang; return this; }
@@ -92,6 +100,8 @@ public final class PageContext {
         public Builder bookLanguage(String v) { this.bookLanguage = v; return this; }
         public Builder uiLanguage(String v) { this.uiLanguage = v; return this; }
         public Builder extractionMode(String v) { this.extractionMode = v; return this; }
+        public Builder csrfParameterName(String v) { this.csrfParameterName = v; return this; }
+        public Builder csrfToken(String v) { this.csrfToken = v; return this; }
         public Builder attr(String key, Object value) { this.attributes.put(key, value); return this; }
         public PageContext build() { return new PageContext(this); }
     }

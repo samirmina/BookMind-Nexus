@@ -89,10 +89,10 @@ class LinkedAccountServiceTest {
         account.setUserId(1L);
         account.setPlatform("notion");
 
-        Mockito.when(linkedAccountRepository.findById(1L)).thenReturn(Optional.of(account));
+        Mockito.when(linkedAccountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
         Mockito.when(linkedAccountRepository.save(Mockito.any(LinkedAccount.class))).thenReturn(account);
 
-        linkedAccountService.updateTokens(1L, "new-token", "new-refresh", LocalDateTime.now().plusDays(1));
+        linkedAccountService.updateTokens(1L, 1L, "new-token", "new-refresh", LocalDateTime.now().plusDays(1));
 
         assertEquals("new-token", account.getAccessToken());
         assertEquals("new-refresh", account.getRefreshToken());

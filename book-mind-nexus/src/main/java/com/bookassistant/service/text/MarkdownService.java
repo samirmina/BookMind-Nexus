@@ -249,6 +249,10 @@ public class MarkdownService {
         text = LINK_PATTERN.matcher(text).replaceAll(match -> {
             String linkText = match.group(1);
             String url = match.group(2);
+            String lowerUrl = url.toLowerCase();
+            if (lowerUrl.startsWith("javascript:") || lowerUrl.startsWith("data:")) {
+                url = "#";
+            }
             return "<a href=\"" + escapeHtml(url) + "\">" + formatInline(escapeHtml(linkText)) + "</a>";
         });
         text = INLINE_CODE_PATTERN.matcher(text).replaceAll("<code>$1</code>");
@@ -272,7 +276,8 @@ public class MarkdownService {
         return text.replace("&", "&amp;")
                    .replace("<", "&lt;")
                    .replace(">", "&gt;")
-                   .replace("\"", "&quot;");
+                   .replace("\"", "&quot;")
+                   .replace("'", "&#39;");
     }
 
     private boolean closeParagraph(StringBuilder html, boolean inParagraph) {

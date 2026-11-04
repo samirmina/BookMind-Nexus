@@ -36,6 +36,7 @@ public final class LoginPageRenderer {
                                 .div(bd -> bd
                                     .raw(error != null ? "<div class=\"alert alert-danger\">" + escapeHtml(error) + "</div>" : "")
                                     .form("/login", "post", form -> form
+                                        .input("hidden", ctx.csrfParameterName(), "value", ctx.csrfToken())
                                         .div(group -> group
                                             .label(ctx.getMessage("login.email")).attr("for", "email")
                                             .input("email", "email", "id", "email", "class", "form-control", "required", "required", "autofocus", "autofocus")

@@ -16,6 +16,7 @@ import java.util.Optional;
 public interface LinkedAccountRepository extends JpaRepository<LinkedAccount, Long> {
     List<LinkedAccount> findByUserId(Long userId);
     Optional<LinkedAccount> findByUserIdAndPlatform(Long userId, String platform);
+    Optional<LinkedAccount> findByIdAndUserId(Long id, Long userId);
     boolean existsByUserIdAndPlatform(Long userId, String platform);
     void deleteByUserIdAndPlatform(Long userId, String platform);
 }

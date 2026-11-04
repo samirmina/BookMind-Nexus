@@ -110,7 +110,7 @@ public class PlanController {
                 }
                 if (bookId != null && bookSession.getPageCount() == 0) {
                     try {
-                        BookData extracted = onDemandExtractionService.extractPages(bookId, startPage, endPage);
+                        BookData extracted = onDemandExtractionService.extractPages(bookId, userId, startPage, endPage);
                         bookSession.setBook(extracted);
                         bookSession.setCurrentBookId(bookId);
                         text = bookSession.extractTextFromPageRange(startPage, endPage);

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 @Controller
 public class LanguageController {
@@ -21,6 +22,7 @@ public class LanguageController {
     private static final String DEFAULT_LANGUAGE = "en";
     private static final String COOKIE_NAME = "bookmind_lang";
     private static final int COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
+    private static final Pattern SAFE_REDIRECT_PATTERN = Pattern.compile("^/[a-zA-Z0-9_./?=&%-]*$");
 
     @GetMapping("/language/switch")
     public String switchLanguage(@RequestParam("lang") String lang,
@@ -35,18 +37,20 @@ public class LanguageController {
         session.setAttribute("org.springframework.web.servlet.i18n.SessionLocaleResolver.LOCALE", Locale.forLanguageTag(targetLang));
 
         Cookie cookie = new Cookie(COOKIE_NAME, targetLang);
+        cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge(COOKIE_MAX_AGE);
         cookie.setHttpOnly(true);
-        if (request != null && request.getServerName() != null && !request.getServerName().isEmpty()) {
-            cookie.setDomain(request.getServerName());
-        }
         response.addCookie(cookie);
 
         LoggingUtils.exit(log, "switchLanguage", "newLang", targetLang);
         String fallback = "redirect:/";
         if (redirectUrl != null && !redirectUrl.isBlank()) {
-            fallback = "redirect:" + redirectUrl;
+            if (SAFE_REDIRECT_PATTERN.matcher(redirectUrl).matches()) {
+                fallback = "redirect:" + redirectUrl;
+            } else {
+                log.warn("Unsafe language redirect ignored: {}", redirectUrl);
+            }
         }
         return fallback;
     }

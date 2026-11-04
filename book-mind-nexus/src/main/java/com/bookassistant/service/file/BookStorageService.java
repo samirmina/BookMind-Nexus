@@ -15,18 +15,20 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
-
 @Service
 public class BookStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(BookStorageService.class);
+
+    // Require at least 100 MB free before accepting new uploads.
+    private static final long MIN_FREE_SPACE_BYTES = 100L * 1024 * 1024;
 
     private final BookRepository bookRepository;
     private final BookPersistenceService bookPersistenceService;
     private final Path pdfSourceRoot;
 
     public BookStorageService(BookRepository bookRepository, BookPersistenceService bookPersistenceService,
-                              @Value("${app.pdf-source-dir:D:/BookMind-Nexus/external/pdfs}") String pdfSourceDir) {
+                              @Value("${app.pdf-source-dir:external/pdfs}") String pdfSourceDir) {
         this.bookRepository = bookRepository;
         this.bookPersistenceService = bookPersistenceService;
         this.pdfSourceRoot = Paths.get(pdfSourceDir).toAbsolutePath().normalize();
@@ -47,6 +49,28 @@ public class BookStorageService {
         return pdfSourceRoot;
     }
 
+    /**
+     * Verifies that the PDF source volume has enough free space to accept an upload
+     * of the given size. Throws {@link IllegalStateException} if there is insufficient
+     * space, preventing the disk from being filled by large uploads.
+     *
+     * @param requiredBytes the size of the upload about to be written
+     */
+    public void ensureDiskSpace(long requiredBytes) {
+        try {
+            long freeSpace = pdfSourceRoot.toFile().getUsableSpace();
+            long needed = requiredBytes + MIN_FREE_SPACE_BYTES;
+            if (freeSpace < needed) {
+                throw new IllegalStateException(
+                    "Insufficient disk space | free=" + freeSpace + " bytes | required=" + needed + " bytes");
+            }
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("Unable to check disk space | root={} | error={}", pdfSourceRoot, e.getMessage());
+        }
+    }
+
     public Path resolveBookPdfPath(Long bookId, String fileName) {
         return pdfSourceRoot.resolve("book_" + bookId + "_" + fileName);
     }
@@ -57,19 +81,25 @@ public class BookStorageService {
     }
 
     /**
-     * Loads the raw PDF bytes for a book from disk.
+     * Loads the raw PDF bytes for a book from disk, verifying the book belongs to
+     * the given user (IDOR protection).
      *
      * @param bookId the book ID
-     * @return the PDF bytes, or empty if not found
+     * @param userId the owning user ID
+     * @return the PDF bytes, or empty if not found or not owned by the user
      */
-    public Optional<byte[]> loadPdf(Long bookId) {
-        Book book = bookRepository.findById(bookId).orElse(null);
+    public Optional<byte[]> loadPdf(Long bookId, Long userId) {
+        Book book = bookRepository.findByIdAndUserId(bookId, userId).orElse(null);
         if (book == null || book.getFilePath() == null) {
             return Optional.empty();
         }
 
         try {
             Path pdfPath = Paths.get(book.getFilePath());
+            if (!isPdfSourcePath(pdfPath)) {
+                log.warn("PDF path escapes source directory | bookId={} | path={}", bookId, pdfPath);
+                return Optional.empty();
+            }
             if (Files.exists(pdfPath)) {
                 byte[] bytes = Files.readAllBytes(pdfPath);
                 log.info("PDF loaded from disk | bookId={} | path={} | size={}", bookId, pdfPath, bytes.length);
@@ -106,12 +136,14 @@ public class BookStorageService {
 
     /**
      * Deletes the PDF file from the source directory when a book is deleted.
-     * Only deletes files within the configured PDF source directory.
+     * Only deletes files within the configured PDF source directory, and only
+     * when the book belongs to the given user (IDOR protection).
      *
      * @param bookId the book ID
+     * @param userId the owning user ID
      */
-    public void deletePdf(Long bookId) {
-        Book book = bookRepository.findById(bookId).orElse(null);
+    public void deletePdf(Long bookId, Long userId) {
+        Book book = bookRepository.findByIdAndUserId(bookId, userId).orElse(null);
         if (book == null || book.getFilePath() == null) {
             return;
         }

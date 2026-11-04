@@ -1,7 +1,6 @@
 package com.bookassistant;
 
 import com.bookassistant.tool.ImageExtractor;
-import com.bookassistant.service.infrastructure.ConsoleCaptureService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.ApplicationRunner;
@@ -72,13 +71,6 @@ public class BookAssistantLiteApplication {
             } catch (Exception e) {
                 // WORKAROUND: silently ignore browser-launch failures so the app can start
             }
-        };
-    }
-
-    @Bean
-    ApplicationRunner startConsoleCapture(ConsoleCaptureService consoleCaptureService) {
-        return args -> {
-            consoleCaptureService.startCapture();
         };
     }
 }

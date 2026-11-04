@@ -233,8 +233,28 @@ public class LoggingUtils {
      * Uses WARN level for validation failures.
      */
     public static void validationFailure(Logger log, String fieldName, String reason, Object value) {
+        String safe = safeTruncate(value);
         log.warn("VALIDATION_FAILURE | field={} | reason={} | value='{}' | correlationId={}", 
-            fieldName, reason, truncate(value), getCorrelationId());
+            fieldName, reason, safe, getCorrelationId());
+    }
+
+    /**
+     * Truncates a logged value and masks e-mail-like strings so user-supplied
+     * content is not written verbatim to the application log.
+     */
+    private static String safeTruncate(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        String str = value.toString();
+        int at = str.indexOf('@');
+        if (at > 0) {
+            str = str.substring(0, Math.min(at, 12)) + "***@***";
+        }
+        if (str.length() > 40) {
+            return str.substring(0, 40) + "... [truncated]";
+        }
+        return str;
     }
 
     /**

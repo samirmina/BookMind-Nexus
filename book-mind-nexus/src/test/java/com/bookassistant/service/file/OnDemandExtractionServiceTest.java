@@ -54,13 +54,13 @@ class OnDemandExtractionServiceTest {
     void testModelOnlyMode_StartPageGreaterThan1_ExtractsCorrectPageNumbers() throws Exception {
         byte[] pdfBytes = createValidPdf();
         byte[] slicedPdf = createValidPdf();
-        when(bookStorageService.loadPdf(1L)).thenReturn(java.util.Optional.of(pdfBytes));
+        when(bookStorageService.loadPdf(1L, 1L)).thenReturn(java.util.Optional.of(pdfBytes));
         when(runtimeConfigService.getExtractionMode()).thenReturn("model-only");
         when(pdfSliceService.slicePageRange(pdfBytes, 5, 5)).thenReturn(slicedPdf);
         when(extractionCacheService.computeHash(slicedPdf)).thenReturn("hash-start5");
         when(extractionCacheService.load("hash-start5")).thenReturn(null);
 
-        BookData result = onDemandExtractionService.extractPages(1L, 5, 5);
+        BookData result = onDemandExtractionService.extractPages(1L, 1L, 5, 5);
 
         assertTrue(result.pages().size() >= 1,
             "Should extract pages even when startPage > 1");
@@ -73,13 +73,13 @@ class OnDemandExtractionServiceTest {
     void testModelOnlyMode_RoutesToPdfBox_SkipsPix2Text() throws Exception {
         byte[] pdfBytes = createValidPdf();
         byte[] slicedPdf = createValidPdf();
-        when(bookStorageService.loadPdf(1L)).thenReturn(java.util.Optional.of(pdfBytes));
+        when(bookStorageService.loadPdf(1L, 1L)).thenReturn(java.util.Optional.of(pdfBytes));
         when(runtimeConfigService.getExtractionMode()).thenReturn("model-only");
         when(pdfSliceService.slicePageRange(pdfBytes, 1, 2)).thenReturn(slicedPdf);
         when(extractionCacheService.computeHash(slicedPdf)).thenReturn("hash123");
         when(extractionCacheService.load("hash123")).thenReturn(null);
 
-        BookData result = onDemandExtractionService.extractPages(1L, 1, 2);
+        BookData result = onDemandExtractionService.extractPages(1L, 1L, 1, 2);
 
         verify(pix2TextClient, never()).extractPages(any(), any());
         verify(extractionCacheService).save(eq("hash123"), anyString(), eq("model-only"), anyList(), anyString());
@@ -90,7 +90,7 @@ class OnDemandExtractionServiceTest {
     void testPix2TextMode_RoutesToPix2Text() throws Exception {
         byte[] pdfBytes = createValidPdf();
         byte[] slicedPdf = createValidPdf();
-        when(bookStorageService.loadPdf(1L)).thenReturn(java.util.Optional.of(pdfBytes));
+        when(bookStorageService.loadPdf(1L, 1L)).thenReturn(java.util.Optional.of(pdfBytes));
         when(runtimeConfigService.getExtractionMode()).thenReturn("pix2text");
         when(pdfSliceService.slicePageRange(pdfBytes, 1, 2)).thenReturn(slicedPdf);
         when(extractionCacheService.computeHash(slicedPdf)).thenReturn("hash456");
@@ -98,7 +98,7 @@ class OnDemandExtractionServiceTest {
         when(pix2TextClient.extractPages(slicedPdf, "upload.pdf"))
                 .thenReturn(List.of(new Pix2TextExtractionClient.PageInfo(1, "text")));
 
-        BookData result = onDemandExtractionService.extractPages(1L, 1, 2);
+        BookData result = onDemandExtractionService.extractPages(1L, 1L, 1, 2);
 
         verify(pix2TextClient).extractPages(slicedPdf, "upload.pdf");
         assertNotNull(result);
@@ -112,13 +112,13 @@ class OnDemandExtractionServiceTest {
                 new com.bookassistant.model.ExtractionCacheEntry("hash123", "test.pdf", "model-only",
                         System.currentTimeMillis(), 2, "cached text",
                         List.of(new PageData(1, "page 1"), new PageData(2, "page 2")));
-        when(bookStorageService.loadPdf(1L)).thenReturn(java.util.Optional.of(pdfBytes));
+        when(bookStorageService.loadPdf(1L, 1L)).thenReturn(java.util.Optional.of(pdfBytes));
         when(runtimeConfigService.getExtractionMode()).thenReturn("model-only");
         when(pdfSliceService.slicePageRange(pdfBytes, 1, 2)).thenReturn(slicedPdf);
         when(extractionCacheService.computeHash(slicedPdf)).thenReturn("hash123");
         when(extractionCacheService.load("hash123")).thenReturn(cachedEntry);
 
-        BookData result = onDemandExtractionService.extractPages(1L, 1, 2);
+        BookData result = onDemandExtractionService.extractPages(1L, 1L, 1, 2);
 
         verify(pix2TextClient, never()).extractPages(any(), any());
         verify(extractionCacheService, never()).save(anyString(), anyString(), anyString(), anyList(), anyString());

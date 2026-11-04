@@ -4,7 +4,6 @@ import com.bookassistant.entity.LinkedAccount;
 import com.bookassistant.service.infrastructure.ExternalNoteService;
 import com.bookassistant.service.infrastructure.LinkedAccountService;
 import com.bookassistant.service.integration.SyncService;
-import com.bookassistant.service.telemetry.TelemetryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,9 +26,6 @@ class AccountControllerTest {
 
     @Mock
     private LinkedAccountService linkedAccountService;
-
-    @Mock
-    private TelemetryService telemetryService;
 
     @Mock
     private SyncService syncService;
@@ -79,7 +75,7 @@ class AccountControllerTest {
     @Test
     void testLinkAccount() {
         when(session.getAttribute("userId")).thenReturn(1L);
-        when(linkedAccountService.findUserAccounts(1L)).thenReturn(Collections.emptyList());
+        lenient().when(linkedAccountService.findUserAccounts(1L)).thenReturn(Collections.emptyList());
 
         LinkedAccount linked = new LinkedAccount();
         linked.setUserId(1L);

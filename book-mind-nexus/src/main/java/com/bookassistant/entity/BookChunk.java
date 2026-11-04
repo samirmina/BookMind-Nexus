@@ -34,7 +34,7 @@ public class BookChunk {
     @Column(name = "chunk_text", columnDefinition = "TEXT", nullable = false)
     private String chunkText;
 
-    @Column(name = "embedding", columnDefinition = "vector(768)")
+    @Column(name = "embedding", columnDefinition = "text")
     private String embedding;
 
     @Column(name = "page_start")

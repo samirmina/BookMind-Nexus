@@ -3,6 +3,8 @@ package com.bookassistant.controller.book;
 import com.bookassistant.model.BookData;
 import com.bookassistant.entity.Book;
 import com.bookassistant.repository.BookRepository;
+import com.bookassistant.repository.BookChunkRepository;
+import com.bookassistant.repository.BookOutputRepository;
 import com.bookassistant.service.file.BookStorageService;
 import com.bookassistant.service.file.PersistentBookStore;
 import com.bookassistant.service.infrastructure.ExtractionCacheService;
@@ -19,6 +21,8 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +36,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 
 /**
  * Handles PDF book uploads and starts background extraction.
@@ -51,29 +56,38 @@ public class UploadController {
 
     private static final Logger log = LoggerFactory.getLogger(UploadController.class);
     private static final String COMPONENT_UPLOAD = "UploadController";
+    private static final long MAX_UPLOAD_BYTES = 50L * 1024 * 1024; // 50 MB
 
     private final BookSession bookSession;
     private final PersistentBookStore databaseBookStore;
     private final BookRepository bookRepository;
+    private final BookChunkRepository bookChunkRepository;
+    private final BookOutputRepository bookOutputRepository;
     private final MessageSource messageSource;
     private final ExtractionCacheService extractionCacheService;
     private final ExtractionProgressService extractionProgressService;
     private final RuntimeLogService runtimeLogService;
     private final BookStorageService bookStorageService;
+    private final Executor taskExecutor;
 
     public UploadController(BookSession bookSession,
                             PersistentBookStore databaseBookStore, BookRepository bookRepository,
+                            BookChunkRepository bookChunkRepository, BookOutputRepository bookOutputRepository,
                             MessageSource messageSource,
                             ExtractionCacheService extractionCacheService, ExtractionProgressService extractionProgressService,
-                            RuntimeLogService runtimeLogService, BookStorageService bookStorageService) {
+                            RuntimeLogService runtimeLogService, BookStorageService bookStorageService,
+                            Executor taskExecutor) {
         this.bookSession = bookSession;
         this.databaseBookStore = databaseBookStore;
         this.bookRepository = bookRepository;
+        this.bookChunkRepository = bookChunkRepository;
+        this.bookOutputRepository = bookOutputRepository;
         this.messageSource = messageSource;
         this.extractionCacheService = extractionCacheService;
         this.extractionProgressService = extractionProgressService;
         this.runtimeLogService = runtimeLogService;
         this.bookStorageService = bookStorageService;
+        this.taskExecutor = taskExecutor;
         log.info("UploadController initialized");
     }
 
@@ -87,6 +101,11 @@ public class UploadController {
             if (file == null || file.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("{\"error\":\"" + messageSource.getMessage("upload.file.empty", null, LocaleContextHolder.getLocale()) + "\"}");
+            }
+
+            if (file.getSize() > MAX_UPLOAD_BYTES) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("{\"error\":\"" + messageSource.getMessage("upload.file.too.large", null, LocaleContextHolder.getLocale()) + "\"}");
             }
 
             String fileName = file.getOriginalFilename();
@@ -116,18 +135,16 @@ public class UploadController {
                 ));
                 extractionProgressService.startJob(jobId, fileName, file.getSize(), "pix2text");
 
-                Book cachedBook = databaseBookStore.saveBook(userId, fileName, fileName, cached.pageCount(), cached.fullText());
-                Path pdfPath = bookStorageService.resolveBookPdfPath(cachedBook.getId(), fileName);
-                Files.createDirectories(pdfPath.getParent());
-                Files.write(pdfPath, bytes);
-                cachedBook.setFilePath(pdfPath.toString());
+                String safeFileName = sanitizeFileName(fileName);
+                Book cachedBook = databaseBookStore.saveBook(userId, safeFileName, safeFileName, cached.pageCount(), cached.fullText());
+                cachedBook.setFilePath(""); // No file written on cache hit; extracted text comes from cache
                 bookRepository.save(cachedBook);
 
                 extractionProgressService.cacheHit(jobId, new BookData(cached.fileName(), cached.pages(), cached.fullText()));
                 return ResponseEntity.ok("{\"jobId\":\"" + jobId + "\",\"status\":\"CACHED\",\"bookId\":" + cachedBook.getId() + "}");
             }
 
-            // Start background save
+            // Start background save (cache miss)
             String jobId = UUID.randomUUID().toString();
             extractionProgressService.startJob(jobId, fileName, file.getSize(), "pix2text");
             runtimeLogService.info(COMPONENT_UPLOAD, jobId, "Background save started", Map.of(
@@ -185,14 +202,14 @@ public class UploadController {
         String fileName;
         try {
             bytes = file.getBytes();
-            fileName = file.getOriginalFilename();
+            fileName = sanitizeFileName(file.getOriginalFilename());
         } catch (IOException e) {
             log.error("Failed to read upload | jobId={} | error={}", jobId, e.getMessage());
             extractionProgressService.failJob(jobId, e.getMessage());
             return;
         }
 
-        new Thread(() -> {
+        taskExecutor.execute(() -> {
             try {
                 extractionProgressService.updateProgress(jobId, 0, 0, "Saving PDF");
 
@@ -204,6 +221,10 @@ public class UploadController {
                 ));
 
                 Path pdfPath = bookStorageService.resolveBookPdfPath(savedBook.getId(), fileName);
+                if (!bookStorageService.isPdfSourcePath(pdfPath)) {
+                    throw new IllegalArgumentException("Resolved PDF path escapes the configured source directory");
+                }
+                bookStorageService.ensureDiskSpace(bytes.length);
                 Files.createDirectories(pdfPath.getParent());
                 Files.write(pdfPath, bytes);
 
@@ -226,7 +247,7 @@ public class UploadController {
                 log.error("Book upload failed | jobId={} | error={}", jobId, e.getMessage());
                 extractionProgressService.failJob(jobId, e.getMessage());
             }
-        }, "upload-" + jobId).start();
+        });
     }
 
     private int getPageCount(byte[] pdfBytes) {
@@ -238,6 +259,14 @@ public class UploadController {
         }
     }
 
+    private String sanitizeFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return "upload.pdf";
+        }
+        String base = new java.io.File(fileName).getName();
+        return base.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
     @PostMapping("/books/{bookId}/load")
     public ResponseEntity<String> loadBookIntoSession(@PathVariable Long bookId, HttpSession session) {
         try {
@@ -247,6 +276,12 @@ public class UploadController {
                         .body("{\"error\":\"Login required\"}");
             }
 
+            // Verify the book belongs to the authenticated user (IDOR protection)
+            if (!bookRepository.findByIdAndUserId(bookId, userId).isPresent()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("{\"error\":\"You do not have access to this book\"}");
+            }
+
             bookSession.loadBookById(bookId);
             log.info("Book loaded into session | bookId={} | userId={}", bookId, userId);
             return ResponseEntity.ok("{\"status\":\"LOADED\"}");
@@ -254,6 +289,61 @@ public class UploadController {
             log.error("Failed to load book into session | bookId={} | error={}", bookId, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("{\"error\":\"" + e.getMessage() + "\"}");
+        }
+    }
+
+    @GetMapping("/books/{bookId}/indexing-status")
+    public ResponseEntity<String> getIndexingStatus(@PathVariable Long bookId, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("{\"error\":\"Login required\"}");
+        }
+        var book = bookRepository.findByIdAndUserId(bookId, userId);
+        if (book.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("{\"error\":\"Book not found\"}");
+        }
+        String status = book.get().getIndexingStatus();
+        String error = book.get().getIndexingError();
+        String json = "{\"bookId\":" + bookId + ",\"status\":\"" + status + "\"";
+        if (error != null && !error.isEmpty()) {
+            json += ",\"error\":\"" + ErrorMessageSanitizer.sanitize(error) + "\"";
+        }
+        json += "}";
+        return ResponseEntity.ok(json);
+    }
+
+    @DeleteMapping("/books/{bookId}")
+    public ResponseEntity<String> deleteBook(@PathVariable Long bookId, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("{\"error\":\"Login required\"}");
+        }
+
+        // Verify ownership (IDOR protection)
+        if (!bookRepository.findByIdAndUserId(bookId, userId).isPresent()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("{\"error\":\"You do not have access to this book\"}");
+        }
+
+        try {
+            // Reclaim the PDF file from disk
+            bookStorageService.deletePdf(bookId, userId);
+
+            // Clean up related data
+            bookChunkRepository.deleteByBookId(bookId);
+            bookOutputRepository.deleteByBookId(bookId);
+
+            bookRepository.deleteById(bookId);
+
+            log.info("Book deleted | bookId={} | userId={}", bookId, userId);
+            return ResponseEntity.ok("{\"status\":\"DELETED\"}");
+        } catch (Exception e) {
+            log.error("Failed to delete book | bookId={} | userId={} | error={}", bookId, userId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\":\"Failed to delete book\"}");
         }
     }
 }

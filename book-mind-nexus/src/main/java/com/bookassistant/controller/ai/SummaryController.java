@@ -30,6 +30,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import com.bookassistant.dto.PageSummaryRequest;
+import com.bookassistant.repository.BookRepository;
 
 import java.io.IOException;
 import java.util.List;
@@ -65,6 +66,7 @@ public class SummaryController {
     private final MessageSource messageSource;
     private final OnDemandExtractionService onDemandExtractionService;
     private final BookStorageService bookStorageService;
+    private final BookRepository bookRepository;
     private final String pagesMode;
 
     /**
@@ -80,8 +82,9 @@ public class SummaryController {
                              MarkdownService markdownService, TextDirectionService textDirectionService,
                              CacheService cacheService, BookOutputService bookOutputService, MessageSource messageSource,
                               OnDemandExtractionService onDemandExtractionService,
-                              BookStorageService bookStorageService,
-                              @Value("${app.summary.pages-mode:aisummary}") String pagesMode) {
+                             BookStorageService bookStorageService,
+                             BookRepository bookRepository,
+                             @Value("${app.summary.pages-mode:aisummary}") String pagesMode) {
         this.bookSession = bookSession;
         this.aiService = aiService;
         this.markdownService = markdownService;
@@ -91,6 +94,7 @@ public class SummaryController {
         this.messageSource = messageSource;
         this.onDemandExtractionService = onDemandExtractionService;
         this.bookStorageService = bookStorageService;
+        this.bookRepository = bookRepository;
         this.pagesMode = pagesMode != null ? pagesMode : "fulltext";
         log.info("SummaryController initialized | pagesMode={}", this.pagesMode);
     }
@@ -142,7 +146,7 @@ public class SummaryController {
             int pdfPageCount = bookSession.getPdfPageCount();
             if (pdfPageCount > 0) {
                 try {
-                    BookData extracted = onDemandExtractionService.extractPages(bookId, 1, pdfPageCount);
+                    BookData extracted = onDemandExtractionService.extractPages(bookId, userId, 1, pdfPageCount);
                     bookSession.setBook(extracted);
                     bookSession.setCurrentBookId(bookId);
                     totalPages = extracted.getPageCount();
@@ -243,7 +247,8 @@ public class SummaryController {
             LoggingUtils.exception(log, "generateGeneralSummary", e);
             log.error("General summary failed | duration={}ms | error={}", duration, e.getMessage());
             String baseMessage = messageSource.getMessage("summary.processing.error", null, LocaleContextHolder.getLocale());
-            String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            String detail = com.bookassistant.util.ErrorMessageSanitizer.sanitize(
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
             String errorMessage = baseMessage + ": " + detail;
             ModelAttributeBinder.addError(model, errorMessage);
             model.addAttribute("summaryGeneral", "<p class='text-danger'>" + errorMessage + "</p>");
@@ -330,7 +335,7 @@ public class SummaryController {
         }
         if (bookId != null && bookSession.getPageCount() == 0) {
             try {
-                BookData extracted = onDemandExtractionService.extractPages(bookId, startPage, endPage);
+                BookData extracted = onDemandExtractionService.extractPages(bookId, userId, startPage, endPage);
                 bookSession.setBook(extracted);
                 bookSession.setCurrentBookId(bookId);
                 log.info("On-demand pages extraction complete | bookId={} | pages={}", bookId, extracted.getPageCount());
@@ -340,133 +345,23 @@ public class SummaryController {
         }
 
         try {
-            String answer;
-            java.util.List<String> skipReasons = new java.util.ArrayList<>();
-            int skippedChunks = 0;
-            int processedChunks = 0;
+            PagesSummaryResult result = processPageRangeSummary(startPage, endPage, lang, chunkSizeParam, userId, bookId);
 
-            if ("aisummary".equalsIgnoreCase(pagesMode)) {
-                int requestedPages = endPage - startPage + 1;
-                
-                // Determine chunk size: auto, manual, or model-only
-                int chunkSize;
-                if ("auto".equalsIgnoreCase(chunkSizeParam)) {
-                    chunkSize = calculateAutoChunkSize(startPage, endPage, lang);
-                    log.info("Auto chunk size calculated | pages={}-{} | chunkSize={}", startPage, endPage, chunkSize);
-                } else if ("model-only".equalsIgnoreCase(chunkSizeParam) || "modelonly".equalsIgnoreCase(chunkSizeParam)) {
-                    chunkSize = requestedPages;
-                } else {
-                    try {
-                        chunkSize = Integer.parseInt(chunkSizeParam);
-                        chunkSize = Math.max(1, Math.min(chunkSize, requestedPages));
-                    } catch (NumberFormatException e) {
-                        log.warn("Invalid chunk size parameter: {}, using auto", chunkSizeParam);
-                        chunkSize = calculateAutoChunkSize(startPage, endPage, lang);
-                    }
-                }
-                
-                java.util.List<String> chunkSummaries = new java.util.ArrayList<>();
-
-                for (int i = startPage; i <= endPage; i += chunkSize) {
-                    int chunkStart = i;
-                    int chunkEnd = Math.min(i + chunkSize - 1, endPage);
-                    log.info("Summarizing chunk | pages={}-{}", chunkStart, chunkEnd);
-
-                    String textChunk = bookSession.extractTextFromPageRange(chunkStart, chunkEnd);
-                    if (ModelAttributeBinder.isEmpty(textChunk)) {
-                        String reason = "Skipped pages " + chunkStart + "-" + chunkEnd + ": no extracted text from Pix2Text";
-                        log.warn("SUMMARY SKIP | reason=EMPTY_TEXT | pages={}-{}", chunkStart, chunkEnd);
-                        skippedChunks++;
-                        skipReasons.add(reason);
-                        continue;
-                    }
-                    log.debug("Chunk {}-{} extracted text length: {}", chunkStart, chunkEnd, textChunk.length());
-
-                    int originalChunkLen = textChunk.length();
-                    textChunk = aiService.truncateToTokens(textChunk, MAX_CHUNK_TOKENS);
-                    if (textChunk.length() < originalChunkLen) {
-                        log.warn("Pages summary chunk truncated | pages={}-{} | originalLen={} | truncatedLen={}", chunkStart, chunkEnd, originalChunkLen, textChunk.length());
-                    }
-
-                    String userContent = "Book text (pages " + chunkStart + "-" + chunkEnd + "):\n" + textChunk;
-                    String systemPrompt = getChunkSummaryPrompt(chunkStart, chunkEnd);
-                    String chunkSummary = aiService.getAnswerFromAi(systemPrompt, userContent, lang);
-
-                    if (ModelAttributeBinder.isEmpty(chunkSummary)) {
-                        String reason = "Skipped pages " + chunkStart + "-" + chunkEnd + ": AI returned empty response";
-                        log.warn("SUMMARY SKIP | reason=AI_EMPTY | pages={}-{}", chunkStart, chunkEnd);
-                        skippedChunks++;
-                        skipReasons.add(reason);
-                        continue;
-                    }
-                    log.debug("Chunk {}-{} AI response length: {}", chunkStart, chunkEnd, chunkSummary.length());
-
-                    if (chunkSummary.startsWith("AI error:")) {
-                        log.warn("AI error for chunk {}-{}: {}", chunkStart, chunkEnd, chunkSummary);
-                        skippedChunks++;
-                        continue;
-                    }
-
-                    chunkSummaries.add("Pages " + chunkStart + "-" + chunkEnd + ":\n" + chunkSummary);
-                    processedChunks++;
-
-                    try {
-                        Thread.sleep(1500);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        log.warn("Chunk processing interrupted");
-                        break;
-                    }
-                }
-
-                log.info("Pages summary complete | requested={}-{} | processed={} | skipped={} | totalChunks={}",
-                    startPage, endPage, processedChunks, skippedChunks,
-                    (endPage - startPage + 1 + chunkSize - 1) / chunkSize);
-
-                int totalChunks = (requestedPages + chunkSize - 1) / chunkSize;
-                model.addAttribute("summaryPagesProcessedChunks", processedChunks);
-                model.addAttribute("summaryPagesSkippedChunks", skippedChunks);
-                model.addAttribute("summaryPagesTotalChunks", totalChunks);
-
-                if (skippedChunks > 0) {
-                    String warningMessage = messageSource.getMessage("summary.chunks.skipped", new Object[]{skippedChunks, totalChunks}, LocaleContextHolder.getLocale());
-                    ModelAttributeBinder.addError(model, warningMessage);
-                }
-
-                if (chunkSummaries.isEmpty()) {
-                    String errorMessage = messageSource.getMessage("summary.error", null, LocaleContextHolder.getLocale());
-                    ModelAttributeBinder.addError(model, errorMessage);
-                    model.addAttribute("summaryPages", "<p class='text-danger'>" + errorMessage + "</p>");
-                    model.addAttribute("summaryPagesDirection", bookLang);
-                    model.addAttribute("summaryPagesLanguage", bookLang);
-                    model.addAttribute("summaryPagesHtmlAttributes", "");
-                    model.addAttribute("summaryPagesInlineStyle", "");
-                    model.addAttribute("hasBook", bookSession.hasBook());
-                    model.addAttribute("bookLanguage", bookLang);
-                    return "index";
-                }
-
-                answer = String.join("\n\n==========\n\n", chunkSummaries);
-            } else {
-                log.info("Extracting full text for pages {}-{}", startPage, endPage);
-                String fullText = bookSession.extractTextFromPageRange(startPage, endPage);
-                if (ModelAttributeBinder.isEmpty(fullText)) {
-                    String errorMessage = messageSource.getMessage("summary.no.text", null, LocaleContextHolder.getLocale());
-                    ModelAttributeBinder.addError(model, errorMessage);
-                    model.addAttribute("summaryPages", "<p class='text-danger'>" + errorMessage + "</p>");
-                    model.addAttribute("summaryPagesDirection", bookLang);
-                    model.addAttribute("summaryPagesLanguage", bookLang);
-                    model.addAttribute("summaryPagesHtmlAttributes", "");
-                    model.addAttribute("summaryPagesInlineStyle", "");
-                    model.addAttribute("hasBook", bookSession.hasBook());
-                    model.addAttribute("bookLanguage", bookLang);
-                    return "index";
-                }
-                answer = fullText;
+            if (result.error() != null) {
+                String errorMessage = messageSource.getMessage("summary.processing.error", null, LocaleContextHolder.getLocale());
+                ModelAttributeBinder.addError(model, errorMessage);
+                model.addAttribute("summaryPages", "<p class='text-danger'>" + errorMessage + "</p>");
+                model.addAttribute("summaryPagesDirection", bookLang);
+                model.addAttribute("summaryPagesLanguage", bookLang);
+                model.addAttribute("summaryPagesHtmlAttributes", "");
+                model.addAttribute("summaryPagesInlineStyle", "");
+                model.addAttribute("hasBook", bookSession.hasBook());
+                model.addAttribute("bookLanguage", bookLang);
+                return "index";
             }
-            
-            String htmlAnswer = markdownService.convertMarkdownToHtml(answer);
-            TextDirectionService.FormattedResponse formattedResponse = 
+
+            String htmlAnswer = markdownService.convertMarkdownToHtml(result.answer());
+            TextDirectionService.FormattedResponse formattedResponse =
                 textDirectionService.createFormattedResponse(htmlAnswer, lang);
 
             model.addAttribute("summaryPages", htmlAnswer);
@@ -474,9 +369,9 @@ public class SummaryController {
             model.addAttribute("summaryPagesLanguage", formattedResponse.getLanguage());
             model.addAttribute("summaryPagesHtmlAttributes", formattedResponse.getHtmlAttributes());
             model.addAttribute("summaryPagesInlineStyle", formattedResponse.getInlineStyle());
-            model.addAttribute("summaryPagesSkippedChunks", skippedChunks);
-            model.addAttribute("summaryPagesTotalChunks", processedChunks + skippedChunks);
-            model.addAttribute("summaryPagesSkipReasons", skipReasons);
+            model.addAttribute("summaryPagesSkippedChunks", result.skippedChunks());
+            model.addAttribute("summaryPagesTotalChunks", result.totalChunks());
+            model.addAttribute("summaryPagesSkipReasons", result.skipReasons());
             model.addAttribute("hasBook", bookSession.hasBook());
             model.addAttribute("bookLanguage", bookLang);
 
@@ -484,7 +379,7 @@ public class SummaryController {
                 bookOutputService.saveOutput(userId, bookId, "summary_pages", htmlAnswer, null, null);
             }
 
-            addCacheToModel(model, answer);
+            addCacheToModel(model, result.answer());
 
             long duration = System.currentTimeMillis() - startTime;
             LoggingUtils.exit(log, "generatePagesSummary", "duration", duration + "ms");
@@ -497,7 +392,8 @@ public class SummaryController {
             LoggingUtils.exception(log, "generatePagesSummary", e);
             log.error("Pages summary failed | duration={}ms | error={}", duration, e.getMessage());
             String baseMessage = messageSource.getMessage("summary.processing.error", null, LocaleContextHolder.getLocale());
-            String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            String detail = com.bookassistant.util.ErrorMessageSanitizer.sanitize(
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
             String errorMessage = baseMessage + ": " + detail;
             ModelAttributeBinder.addError(model, errorMessage);
             model.addAttribute("summaryPages", "<p class='text-danger'>" + errorMessage + "</p>");
@@ -531,6 +427,11 @@ public class SummaryController {
         }
 
         if (request.bookId() != null) {
+            // Verify the book belongs to the authenticated user (IDOR protection)
+            if (!bookRepository.findByIdAndUserId(request.bookId(), userId).isPresent()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You do not have access to this book"));
+            }
             try {
                 bookSession.loadBookById(request.bookId());
             } catch (Exception e) {
@@ -558,71 +459,13 @@ public class SummaryController {
         int endPage = request.endPage();
 
         try {
-            String answer;
-            java.util.List<String> skipReasons = new java.util.ArrayList<>();
-            int skippedChunks = 0;
-            int processedChunks = 0;
+            PagesSummaryResult result = processPageRangeSummary(startPage, endPage, lang, chunkSizeParam, userId, request.bookId());
 
-            if ("aisummary".equalsIgnoreCase(pagesMode)) {
-                int requestedPages = endPage - startPage + 1;
-                int chunkSize;
-                if ("auto".equalsIgnoreCase(chunkSizeParam)) {
-                    chunkSize = calculateAutoChunkSize(startPage, endPage, lang);
-                } else if ("model-only".equalsIgnoreCase(chunkSizeParam) || "modelonly".equalsIgnoreCase(chunkSizeParam)) {
-                    chunkSize = requestedPages;
-                } else {
-                    try {
-                        chunkSize = Integer.parseInt(chunkSizeParam);
-                        chunkSize = Math.max(1, Math.min(chunkSize, requestedPages));
-                    } catch (NumberFormatException e) {
-                        chunkSize = calculateAutoChunkSize(startPage, endPage, lang);
-                    }
-                }
-
-                java.util.List<String> chunkSummaries = new java.util.ArrayList<>();
-
-                for (int i = startPage; i <= endPage; i += chunkSize) {
-                    int chunkStart = i;
-                    int chunkEnd = Math.min(i + chunkSize - 1, endPage);
-
-                    String textChunk = bookSession.extractTextFromPageRange(chunkStart, chunkEnd);
-                    if (ModelAttributeBinder.isEmpty(textChunk)) {
-                        String reason = "Skipped pages " + chunkStart + "-" + chunkEnd + ": no extracted text";
-                        skipReasons.add(reason);
-                        skippedChunks++;
-                        continue;
-                    }
-
-                    textChunk = aiService.truncateToTokens(textChunk, MAX_CHUNK_TOKENS);
-                    String userContent = "Book text (pages " + chunkStart + "-" + chunkEnd + "):\n" + textChunk;
-                    String systemPrompt = getChunkSummaryPrompt(chunkStart, chunkEnd);
-                    String chunkSummary = aiService.getAnswerFromAi(systemPrompt, userContent, lang);
-
-                    if (ModelAttributeBinder.isEmpty(chunkSummary) || chunkSummary.startsWith("AI error:")) {
-                        String reason = "Skipped pages " + chunkStart + "-" + chunkEnd + ": AI error — " + chunkSummary;
-                        skipReasons.add(reason);
-                        skippedChunks++;
-                        continue;
-                    }
-
-                    chunkSummaries.add("Pages " + chunkStart + "-" + chunkEnd + ":\n" + chunkSummary);
-                    processedChunks++;
-                }
-
-                if (chunkSummaries.isEmpty()) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "No summary could be generated"));
-                }
-
-                answer = String.join("\n\n==========\n\n", chunkSummaries);
-            } else {
-                String fullText = bookSession.extractTextFromPageRange(startPage, endPage);
-                if (ModelAttributeBinder.isEmpty(fullText)) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "No text extracted from pages"));
-                }
-                answer = fullText;
+            if (result.error() != null) {
+                return ResponseEntity.badRequest().body(Map.of("error", result.error()));
             }
 
-            String htmlAnswer = markdownService.convertMarkdownToHtml(answer);
+            String htmlAnswer = markdownService.convertMarkdownToHtml(result.answer());
             TextDirectionService.FormattedResponse formattedResponse =
                     textDirectionService.createFormattedResponse(htmlAnswer, lang);
 
@@ -632,9 +475,9 @@ public class SummaryController {
             response.put("summaryPagesLanguage", formattedResponse.getLanguage());
             response.put("summaryPagesHtmlAttributes", formattedResponse.getHtmlAttributes());
             response.put("summaryPagesInlineStyle", formattedResponse.getInlineStyle());
-            response.put("summaryPagesSkippedChunks", skippedChunks);
-            response.put("summaryPagesTotalChunks", processedChunks + skippedChunks);
-            response.put("summaryPagesSkipReasons", skipReasons);
+            response.put("summaryPagesSkippedChunks", result.skippedChunks());
+            response.put("summaryPagesTotalChunks", result.totalChunks());
+            response.put("summaryPagesSkipReasons", result.skipReasons());
 
             if (request.bookId() != null && userId != null) {
                 bookOutputService.saveOutput(userId, request.bookId(), "summary_pages", htmlAnswer, null, null);
@@ -644,7 +487,94 @@ public class SummaryController {
 
         } catch (Exception e) {
             log.error("Pages summary failed | error={}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(Map.of("error", "Processing failed: " + e.getMessage()));
+            String sanitized = com.bookassistant.util.ErrorMessageSanitizer.sanitize(e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Processing failed: " + sanitized));
+        }
+    }
+
+    private record PagesSummaryResult(
+            String answer,
+            int skippedChunks,
+            int processedChunks,
+            int totalChunks,
+            java.util.List<String> skipReasons,
+            String error
+    ) {}
+
+    private PagesSummaryResult processPageRangeSummary(
+            int startPage, int endPage, String lang, String chunkSizeParam,
+            Long userId, Long bookId) {
+
+        java.util.List<String> skipReasons = new java.util.ArrayList<>();
+        int skippedChunks = 0;
+        int processedChunks = 0;
+
+        if ("aisummary".equalsIgnoreCase(pagesMode)) {
+            int requestedPages = endPage - startPage + 1;
+
+            int chunkSize;
+            if ("auto".equalsIgnoreCase(chunkSizeParam)) {
+                chunkSize = calculateAutoChunkSize(startPage, endPage, lang);
+                log.info("Auto chunk size calculated | pages={}-{} | chunkSize={}", startPage, endPage, chunkSize);
+            } else if ("model-only".equalsIgnoreCase(chunkSizeParam) || "modelonly".equalsIgnoreCase(chunkSizeParam)) {
+                chunkSize = requestedPages;
+            } else {
+                try {
+                    chunkSize = Integer.parseInt(chunkSizeParam);
+                    chunkSize = Math.max(1, Math.min(chunkSize, requestedPages));
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid chunk size parameter: {}, using auto", chunkSizeParam);
+                    chunkSize = calculateAutoChunkSize(startPage, endPage, lang);
+                }
+            }
+
+            java.util.List<String> chunkSummaries = new java.util.ArrayList<>();
+
+            for (int i = startPage; i <= endPage; i += chunkSize) {
+                int chunkStart = i;
+                int chunkEnd = Math.min(i + chunkSize - 1, endPage);
+                log.info("Summarizing chunk | pages={}-{}", chunkStart, chunkEnd);
+
+                String textChunk = bookSession.extractTextFromPageRange(chunkStart, chunkEnd);
+                if (ModelAttributeBinder.isEmpty(textChunk)) {
+                    String reason = "Skipped pages " + chunkStart + "-" + chunkEnd + ": no extracted text";
+                    log.warn("SUMMARY SKIP | reason=EMPTY_TEXT | pages={}-{}", chunkStart, chunkEnd);
+                    skippedChunks++;
+                    skipReasons.add(reason);
+                    continue;
+                }
+
+                textChunk = aiService.truncateToTokens(textChunk, MAX_CHUNK_TOKENS);
+                String userContent = "Book text (pages " + chunkStart + "-" + chunkEnd + "):\n" + textChunk;
+                String systemPrompt = getChunkSummaryPrompt(chunkStart, chunkEnd);
+                String chunkSummary = aiService.getAnswerFromAi(systemPrompt, userContent, lang);
+
+                if (ModelAttributeBinder.isEmpty(chunkSummary) || chunkSummary.startsWith("AI error:")) {
+                    String reason = "Skipped pages " + chunkStart + "-" + chunkEnd + ": AI error — " + chunkSummary;
+                    skipReasons.add(reason);
+                    skippedChunks++;
+                    continue;
+                }
+
+                chunkSummaries.add("Pages " + chunkStart + "-" + chunkEnd + ":\n" + chunkSummary);
+                processedChunks++;
+            }
+
+            if (chunkSummaries.isEmpty()) {
+                return new PagesSummaryResult(null, skippedChunks, processedChunks, 0, skipReasons, "No summary could be generated");
+            }
+
+            String answer = String.join("\n\n==========\n\n", chunkSummaries);
+            int totalChunks = (requestedPages + chunkSize - 1) / chunkSize;
+
+            return new PagesSummaryResult(answer, skippedChunks, processedChunks, totalChunks, skipReasons, null);
+        } else {
+            log.info("Extracting full text for pages {}-{}", startPage, endPage);
+            String fullText = bookSession.extractTextFromPageRange(startPage, endPage);
+            if (ModelAttributeBinder.isEmpty(fullText)) {
+                return new PagesSummaryResult(null, 0, 0, 0, skipReasons, "No text extracted from pages");
+            }
+            return new PagesSummaryResult(fullText, 0, 0, 1, skipReasons, null);
         }
     }
 

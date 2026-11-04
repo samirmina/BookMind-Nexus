@@ -15,6 +15,7 @@ import org.springframework.context.support.StaticMessageSource;
 import org.springframework.ui.Model;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.util.Locale;
 
@@ -47,6 +48,9 @@ class AuthControllerTest {
     @Mock
     private HttpSession session;
 
+    @Mock(lenient = true)
+    private HttpServletRequest request;
+
     @InjectMocks
     private AuthController authController;
 
@@ -57,6 +61,7 @@ class AuthControllerTest {
         ms.addMessage("login.success", Locale.ENGLISH, "تم تسجيل الدخول بنجاح");
         ms.addMessage("logout.success", Locale.ENGLISH, "تم تسجيل الخروج");
         this.messageSource = ms;
+        when(request.getSession(true)).thenReturn(session);
         this.authController = new AuthController(userService, messageSource);
     }
 
@@ -80,7 +85,7 @@ class AuthControllerTest {
 
         when(userService.register(anyString(), anyString(), any())).thenReturn(user);
 
-        String view = authController.processRegistration("test@example.com", "password123", "Test User", session, redirectAttributes, model);
+        String view = authController.processRegistration("test@example.com", "password123", "Test User", request, session, redirectAttributes, model);
 
         assertEquals("redirect:/app", view);
     }
@@ -90,7 +95,7 @@ class AuthControllerTest {
         when(userService.register(anyString(), anyString(), any()))
             .thenThrow(new IllegalArgumentException("Email is already registered"));
 
-        String view = authController.processRegistration("test@example.com", "password123", "Test User", session, redirectAttributes, model);
+        String view = authController.processRegistration("test@example.com", "password123", "Test User", request, session, redirectAttributes, model);
 
         assertEquals("auth/register", view);
     }
@@ -103,7 +108,7 @@ class AuthControllerTest {
 
         when(userService.login(anyString(), anyString())).thenReturn(user);
 
-        String view = authController.processLogin("test@example.com", "password123", session, redirectAttributes, model);
+        String view = authController.processLogin("test@example.com", "password123", request, session, redirectAttributes, model);
 
         assertEquals("redirect:/app", view);
         verify(session).setAttribute("userId", 1L);
@@ -115,7 +120,7 @@ class AuthControllerTest {
         when(userService.login(anyString(), anyString()))
             .thenThrow(new IllegalArgumentException("Invalid email or password"));
 
-        String view = authController.processLogin("test@example.com", "wrongpassword", session, redirectAttributes, model);
+        String view = authController.processLogin("test@example.com", "wrongpassword", request, session, redirectAttributes, model);
 
         assertEquals("auth/login", view);
     }

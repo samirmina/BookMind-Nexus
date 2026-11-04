@@ -98,10 +98,11 @@ public class GoogleVertexProvider implements AiProvider {
             )
         );
 
-        String url = baseUrl + "/v1beta/models/" + extractModel(request) + ":streamGenerateContent?key=" + apiKey;
+        String url = baseUrl + "/v1beta/models/" + extractModel(request) + ":streamGenerateContent";
 
         return webClient.post()
             .uri(url)
+            .header("x-goog-api-key", apiKey)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(body)
             .retrieve()
@@ -127,7 +128,8 @@ public class GoogleVertexProvider implements AiProvider {
                 );
 
                 Map<String, Object> response = webClient.post()
-                    .uri(baseUrl + "/v1beta/models/" + embedModel + ":embedContent?key=" + apiKey)
+                    .uri(baseUrl + "/v1beta/models/" + embedModel + ":embedContent")
+                    .header("x-goog-api-key", apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
                     .retrieve()

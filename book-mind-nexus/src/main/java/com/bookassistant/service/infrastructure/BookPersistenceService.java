@@ -8,6 +8,7 @@ import com.bookassistant.repository.ReadingProgressRepository;
 import com.bookassistant.service.rag.RagService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -54,17 +55,38 @@ public class BookPersistenceService {
     public Book save(Book book) {
         Book saved = bookRepository.save(book);
         log.info("Book saved | bookId={} | title={}", saved.getId(), saved.getTitle());
-        
-        // Trigger RAG indexing asynchronously
+
+        // Trigger RAG indexing asynchronously (non-blocking)
         if (saved.getFullText() != null && !saved.getFullText().isBlank()) {
-            try {
-                ragService.indexBook(saved);
-            } catch (Exception e) {
-                log.error("Failed to index book for RAG | bookId={}", saved.getId(), e);
-            }
+            indexBookAsync(saved);
         }
-        
+
         return saved;
+    }
+
+    /**
+     * Indexes a book for RAG search in a background thread.
+     * <p>
+     * <b>Why:</b> Keeps the upload response fast by deferring expensive
+     * embedding generation to a separate thread. Failures here do not
+     * block the upload or cause the book save to be rolled back.
+     */
+    @Async
+    public void indexBookAsync(Book book) {
+        book.setIndexingStatus("PENDING");
+        bookRepository.save(book);
+        try {
+            ragService.indexBook(book);
+            book.setIndexingStatus("COMPLETED");
+            book.setIndexingError(null);
+            bookRepository.save(book);
+            log.info("RAG indexing completed | bookId={}", book.getId());
+        } catch (Exception e) {
+            book.setIndexingStatus("FAILED");
+            book.setIndexingError(e.getMessage());
+            bookRepository.save(book);
+            log.error("RAG indexing failed for book | bookId={} | error={}", book.getId(), e.getMessage());
+        }
     }
 
     public void deleteById(Long id) {

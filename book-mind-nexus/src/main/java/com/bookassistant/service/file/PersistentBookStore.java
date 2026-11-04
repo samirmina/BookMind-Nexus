@@ -41,7 +41,7 @@ public class PersistentBookStore {
         book.setFilePath(folder + "/" + fileName);
         book.setPageCount(pageCount);
         book.setFullText(fullText);
-        book.setTags(new String[]{"upload"});
+        book.setTags(java.util.List.of("upload"));
 
         Book saved = bookPersistenceService.save(book);
         log.info("Book saved to database | userId={} | bookId={} | fileName={} | folder={}",

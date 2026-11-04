@@ -1,7 +1,18 @@
 package com.bookassistant.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Represents an uploaded book belonging to a user.
@@ -46,7 +57,14 @@ public class Book {
     private String bookFolder = "";
 
     @Column(name = "tags", columnDefinition = "TEXT[] DEFAULT '{}'")
-    private String[] tags = new String[0];
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    private List<String> tags = new ArrayList<>();
+
+    @Column(name = "indexing_status", length = 20, nullable = false, columnDefinition = "VARCHAR(20) DEFAULT 'PENDING'")
+    private String indexingStatus = "PENDING";
+
+    @Column(name = "indexing_error", columnDefinition = "TEXT")
+    private String indexingError;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -82,8 +100,12 @@ public class Book {
     public void setLanguage(String language) { this.language = language; }
     public String getBookFolder() { return bookFolder; }
     public void setBookFolder(String bookFolder) { this.bookFolder = bookFolder; }
-    public String[] getTags() { return tags; }
-    public void setTags(String[] tags) { this.tags = tags; }
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
+    public String getIndexingStatus() { return indexingStatus; }
+    public void setIndexingStatus(String indexingStatus) { this.indexingStatus = indexingStatus; }
+    public String getIndexingError() { return indexingError; }
+    public void setIndexingError(String indexingError) { this.indexingError = indexingError; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

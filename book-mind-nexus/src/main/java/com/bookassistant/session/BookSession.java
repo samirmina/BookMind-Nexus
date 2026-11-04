@@ -8,7 +8,6 @@ import com.bookassistant.util.LoggingUtils;
 import com.bookassistant.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.SessionScope;
 
@@ -44,7 +43,6 @@ public class BookSession {
     private Long currentBookId;
     private String detectedLanguage;
 
-    @Value("${app.user.id:1}")
     private Long userId;
 
     private final BookPersistenceService bookPersistenceService;
@@ -185,7 +183,7 @@ public class BookSession {
      * <p>
      * <b>Where:</b> Called by AI controllers before processing page ranges.
      */
-    public void ensurePagesLoaded(long bookId, int startPage, int endPage, OnDemandExtractionService extractionService) throws IOException {
+    public void ensurePagesLoaded(long bookId, Long userId, int startPage, int endPage, OnDemandExtractionService extractionService) throws IOException {
         synchronized (lock) {
             if (currentBook != null && currentBook.pages() != null && !currentBook.pages().isEmpty()) {
                 boolean hasCoverage = currentBook.pages().stream()
@@ -196,7 +194,7 @@ public class BookSession {
             }
         }
 
-        BookData extracted = extractionService.extractPages(bookId, startPage, endPage);
+        BookData extracted = extractionService.extractPages(bookId, userId, startPage, endPage);
         setBook(extracted);
         this.currentBookId = bookId;
         log.info("On-demand extraction loaded into session | bookId={} | pages={}", bookId, extracted.getPageCount());
@@ -205,8 +203,11 @@ public class BookSession {
     public Long resolveBookId(Long userId) {
         if (currentBookId != null) return currentBookId;
         if (currentBook == null) return null;
+        if (userId == null || userId <= 0) {
+            return null;
+        }
 
-            List<com.bookassistant.entity.Book> existing = bookPersistenceService.findByUserIdAndTitle(userId, currentBook.fileName());
+        List<com.bookassistant.entity.Book> existing = bookPersistenceService.findByUserIdAndTitle(userId, currentBook.fileName());
         if (!existing.isEmpty()) {
             currentBookId = existing.get(0).getId();
         } else {

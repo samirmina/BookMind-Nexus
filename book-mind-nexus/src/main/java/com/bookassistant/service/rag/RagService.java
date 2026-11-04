@@ -5,6 +5,7 @@ import com.bookassistant.entity.Book;
 import com.bookassistant.entity.BookChunk;
 import com.bookassistant.repository.BookChunkRepository;
 import com.bookassistant.util.LoggingUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * RAG service implementing the three essential components:
@@ -41,11 +44,13 @@ public class RagService {
 
     private final BookChunkRepository chunkRepository;
     private final AiProperties aiProperties;
+    private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
-    public RagService(BookChunkRepository chunkRepository, AiProperties aiProperties) {
+    public RagService(BookChunkRepository chunkRepository, AiProperties aiProperties, ObjectMapper objectMapper) {
         this.chunkRepository = chunkRepository;
         this.aiProperties = aiProperties;
+        this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -106,23 +111,21 @@ public class RagService {
             return "";
         }
 
-        try {
+            try {
             String embeddingModel = aiProperties.getEmbeddingModel();
             String baseUrl = aiProperties.getBaseUrl();
             String embeddingsUrl = baseUrl.replace("/api/generate", "/api/embeddings");
 
-            String requestBody = String.format("""
-                {
-                    "model": "%s",
-                    "prompt": "%s"
-                }
-                """, embeddingModel, escapeJson(text));
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", embeddingModel);
+            requestBody.put("prompt", text);
+            String json = objectMapper.writeValueAsString(requestBody);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(embeddingsUrl))
                     .timeout(EMBEDDING_TIMEOUT)
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+                    .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -133,21 +136,14 @@ public class RagService {
             }
 
             // Parse Ollama embedding response: {"embedding": [0.1, 0.2, ...]}
-            String body = response.body();
-            int embeddingIdx = body.indexOf("\"embedding\"");
-            if (embeddingIdx < 0) {
-                log.error("No embedding field in response | body={}", body.substring(0, Math.min(200, body.length())));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> responseMap = objectMapper.readValue(response.body(), Map.class);
+            Object embedding = responseMap.get("embedding");
+            if (embedding == null) {
+                log.error("No embedding field in response | body={}", response.body().substring(0, Math.min(200, response.body().length())));
                 return "";
             }
-
-            int arrayStart = body.indexOf('[', embeddingIdx);
-            int arrayEnd = body.indexOf(']', arrayStart);
-            if (arrayStart < 0 || arrayEnd < 0) {
-                return "";
-            }
-
-            String vectorStr = body.substring(arrayStart + 1, arrayEnd);
-            return vectorStr;
+            return objectMapper.writeValueAsString(embedding);
 
         } catch (Exception e) {
             log.error("Failed to generate embedding", e);
@@ -300,13 +296,5 @@ public class RagService {
     public void deleteBookChunks(Long bookId) {
         chunkRepository.deleteByBookId(bookId);
         log.info("Deleted chunks for book | bookId={}", bookId);
-    }
-
-    private String escapeJson(String text) {
-        return text.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
     }
 }

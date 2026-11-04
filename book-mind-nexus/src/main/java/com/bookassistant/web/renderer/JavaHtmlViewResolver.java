@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.ViewResolver;
 
@@ -104,6 +105,13 @@ public class JavaHtmlViewResolver implements ViewResolver {
 
                 Object success = model.get("success");
                 if (success != null) builder.attr("success", success.toString());
+            }
+
+            // Extract CSRF token from request for form protection
+            CsrfToken csrf = (CsrfToken) request.getAttribute("_csrf");
+            if (csrf != null) {
+                builder.csrfParameterName(csrf.getParameterName());
+                builder.csrfToken(csrf.getToken());
             }
 
             // Also check session for user data

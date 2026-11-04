@@ -132,7 +132,7 @@ public class SearchController {
             }
             if (bookId != null && text.isBlank()) {
                 try {
-                    BookData extracted = onDemandExtractionService.extractPages(bookId, 1, bookSession.getPdfPageCount() == 0 ? 9999 : bookSession.getPdfPageCount());
+                    BookData extracted = onDemandExtractionService.extractPages(bookId, userId, 1, bookSession.getPdfPageCount() == 0 ? 9999 : bookSession.getPdfPageCount());
                     bookSession.setBook(extracted);
                     bookSession.setCurrentBookId(bookId);
                     bookSession.persistExtractedText(bookId, extracted.fullText());

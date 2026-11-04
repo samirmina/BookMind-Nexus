@@ -42,18 +42,25 @@ external/
 storage/
 ui-screenshots/
 
+# Kilo / MCP runtime directories
+.behavior-mcp
+.agents/
+.kilo/
+kilo.jsonc
+
+# Kilo runtime environment (Python installation, not project source)
+kilo_environment_data/
+
+# Runtime logs
+logs/
+book-mind-nexus/logs/
+
 # Runtime data
 runtime-logs.json
 localhost.har
 
 # Backup files
 *.bak
-
-# Kilo / MCP runtime directories
-.behavior-mcp
-.agents/
-.kilo/
-kilo.jsonc
 
 # Project profile (not for git)
 PROJECT_PROFILE.md

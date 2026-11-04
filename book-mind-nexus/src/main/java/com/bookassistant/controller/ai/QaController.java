@@ -187,8 +187,8 @@ public class QaController {
                 externalNotesCount = totalNotesCount > 0 ? totalNotesCount : notesWithContent;
                 log.info("Cross-platform QA | hasLinkedAccount={} | totalNotes={} | notesWithContent={} | notesLen={}", 
                     hasLinkedAccount, totalNotesCount, notesWithContent, externalNotes.length());
-                if (log.isDebugEnabled() && !externalNotes.isBlank()) {
-                    log.debug("External notes preview | first1000={}", externalNotes.substring(0, Math.min(1000, externalNotes.length())));
+                if (log.isDebugEnabled()) {
+                    log.debug("External notes preview | first100={}", externalNotes.substring(0, Math.min(100, externalNotes.length())));
                 }
                 Long bookId = bookSession.resolveBookId(userId);
                 answer = crossPlatformQaService.answerWithContext(question, bookText, externalNotes, targetLanguage);
@@ -203,7 +203,7 @@ public class QaController {
                 }
                 if (bookId != null && bookSession.getPageCount() == 0) {
                     try {
-                        BookData extracted = onDemandExtractionService.extractPages(bookId, 1, bookSession.getPdfPageCount() == 0 ? 9999 : bookSession.getPdfPageCount());
+                        BookData extracted = onDemandExtractionService.extractPages(bookId, userId, 1, bookSession.getPdfPageCount() == 0 ? 9999 : bookSession.getPdfPageCount());
                         bookSession.setBook(extracted);
                         bookSession.setCurrentBookId(bookId);
                         bookSession.persistExtractedText(bookId, extracted.fullText());

@@ -1,167 +1,175 @@
-version: '3.8'
+# =============================================================================
+# BookMind Nexus - Docker Compose Orchestration
+# =============================================================================
+# Services:
+#   book-mind-nexus  - Main web application (port 8083)
+#   ai-gateway       - AI microservice (port 8081)
+#   ollama           - Local LLM inference (port 11434)
+#   pix2text         - PDF text extraction microservice (port 8080)
+#   postgres         - PostgreSQL 16 + pgvector (PLACEHOLDER - finalized at end)
+#
+# Copy .env.example to .env and fill in real values before running:
+#   cp .env.example .env
+#   docker compose up --build
+# =============================================================================
 
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: BookMind-Nexus-postgres
-    environment:
-      POSTGRES_DB: BookMind_Nexus
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - BookMind-Nexus-postgres-data:/var/lib/postgresql/data
-      - ./book-mind-nexus/src/main/resources/schema-migration.sql:/docker-entrypoint-initdb.d/01-schema-migration.sql:ro
-      - ./book-mind-nexus/src/main/resources/schema-telemetry.sql:/docker-entrypoint-initdb.d/02-schema-telemetry.sql:ro
-      - ./book-mind-nexus/src/main/resources/schema-telemetry-triggers.sql:/docker-entrypoint-initdb.d/03-schema-telemetry-triggers.sql:ro
-      - ./book-mind-nexus/src/main/resources/schema-ui-validation.sql:/docker-entrypoint-initdb.d/04-schema-ui-validation.sql:ro
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d BookMind_Nexus"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    networks:
-      - BookMind-Nexus-network
-    restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: BookMind-Nexus-ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0:11434
-      - CUDA_VISIBLE_DEVICES=0
-    volumes:
-      - BookMind-Nexus-ollama-data:/root/.ollama
-    ports:
-      - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD-SHELL", "pidof ollama > /dev/null"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - BookMind-Nexus-network
-    restart: unless-stopped
-
-  pix2text:
+  # ---------------------------------------------------------------
+  # Main web application
+  # ---------------------------------------------------------------
+  book-mind-nexus:
     build:
       context: .
-      dockerfile: extraction-service/Dockerfile
-    container_name: BookMind-Nexus-pix2text
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
-    volumes:
-      - ./external/cache:/app/cache:rw
-      - ./external/tmp:/app/tmp:rw
-      - ./storage/books:/app/storage/books:ro
-      - ./external/pdfs:/app/external/pdfs:ro
+      dockerfile: book-mind-nexus/Dockerfile
+    container_name: book-mind-nexus
     ports:
-      - "8080:8080"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
-    networks:
-      - BookMind-Nexus-network
-    restart: unless-stopped
-
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: BookMind-Nexus-app
+      - "${SERVER_PORT:8083}:8083"
+    env_file:
+      - .env
     environment:
-      - SERVER_PORT=8083
       - SPRING_PROFILES_ACTIVE=docker
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=postgres
-      - AI_BASE_URL=http://ollama:11434/api/generate
-      - AI_MODEL=llama3.2:3b
-      - AI_EMBEDDING_MODEL=nomic-embed-text
-      - AI_API_KEY=local-dummy-key
-      - AI_TIMEOUT_SECONDS=86400
-      - PIX2TEXT_URL=http://pix2text:8080
-      - PIX2TEXT_TIMEOUT=86400s
-      - SUMMARY_PAGES_MODE=aisummary
-      - EXTRACTION_MODE=model-only
-    volumes:
-      - ./external/cache:/app/cache:rw
-      - ./external/tmp:/app/tmp:rw
-      - ./storage/books:/app/storage/books:rw
-      - ./external/logs:/app/logs:rw
-      - ./external/pdfs:/app/external/pdfs:rw
-      - ./ui-screenshots:/app/ui-screenshots:rw
-    ports:
-      - "8083:8083"
     depends_on:
-      postgres:
+      ai-gateway:
         condition: service_healthy
       ollama:
         condition: service_healthy
+      pix2text:
+        condition: service_healthy
+    volumes:
+      - app_cache:/app/cache
+      - app_logs:/app/logs
+      - app_tmp:/app/tmp
+      - app_storage:/app/storage/books
+      - app_pdfs:/app/external/pdfs
+    networks:
+      - bookmind-net
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/"]
+      test: ["CMD", "sh", "-c", "curl -sf http://localhost:8083/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
       start_period: 60s
-    networks:
-      - BookMind-Nexus-network
-    restart: unless-stopped
 
-
-  # =============================================================================
-  # AI GATEWAY SERVICE
-  # =============================================================================
+  # ---------------------------------------------------------------
+  # AI Gateway microservice
+  # ---------------------------------------------------------------
   ai-gateway:
     build:
       context: .
       dockerfile: ai-gateway/Dockerfile
-    container_name: BookMind-Nexus-ai-gateway
-    environment:
-      - SERVER_PORT=8081
-      - SPRING_PROFILES_ACTIVE=docker
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=postgres
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/BookMind_Nexus
+    container_name: ai-gateway
     ports:
       - "8081:8081"
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
     depends_on:
-      postgres:
+      ollama:
         condition: service_healthy
+    volumes:
+      - gateway_logs:/app/logs
+      - gateway_cache:/app/cache
+    networks:
+      - bookmind-net
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/api/gateway/health"]
+      test: ["CMD", "sh", "-c", "curl -sf http://localhost:8081/api/gateway/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ---------------------------------------------------------------
+  # Ollama - local LLM inference
+  # ---------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - bookmind-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
+
+  # ---------------------------------------------------------------
+  # Pix2Text - PDF text extraction microservice
+  # ---------------------------------------------------------------
+  pix2text:
+    image: pix2text/pix2text:latest
+    container_name: pix2text
+    ports:
+      - "8080:8080"
+    volumes:
+      - pix2text_cache:/app/cache
     networks:
-      - BookMind-Nexus-network
+      - bookmind-net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
-volumes:
-  BookMind-Nexus-postgres-data:
-  BookMind-Nexus-ollama-data:
+  # ---------------------------------------------------------------
+  # PostgreSQL 16 + pgvector - DATABASE (PLACEHOLDER)
+  # =============================================================================
+  # NOTE: Database configuration is intentionally deferred to the end.
+  # This section is a placeholder and will be completed after points #2 and #3.
+  # Do not uncomment or activate until database settings are finalized.
+  # =============================================================================
+  # postgres:
+  #   image: pgvector/pgvector:pg16
+  #   container_name: postgres
+  #   ports:
+  #     - "${DB_PORT:5432}:5432"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - POSTGRES_DB=${DB_NAME:book_assistant}
+  #     - POSTGRES_USER=${DB_USERNAME:postgres}
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD:}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+  #   networks:
+  #     - bookmind-net
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:postgres} -d ${DB_NAME:book_assistant}"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
 
+# ---------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------
 networks:
-  BookMind-Nexus-network:
+  bookmind-net:
     driver: bridge
+
+# ---------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------
+volumes:
+  app_cache:
+  app_logs:
+  app_tmp:
+  app_storage:
+  app_pdfs:
+  gateway_logs:
+  gateway_cache:
+  ollama_models:
+  pix2text_cache:
+  # postgres_data:  # Uncommented when database is finalized

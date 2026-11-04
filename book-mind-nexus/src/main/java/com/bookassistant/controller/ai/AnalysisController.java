@@ -475,7 +475,7 @@ private String processAnalysis(String analysisType, int startPage, int endPage,
         }
         if (bookId != null && bookSession.getPageCount() == 0) {
             try {
-                BookData extracted = onDemandExtractionService.extractPages(bookId, startPage, endPage);
+                BookData extracted = onDemandExtractionService.extractPages(bookId, userId, startPage, endPage);
                 bookSession.setBook(extracted);
                 bookSession.setCurrentBookId(bookId);
                 log.info("On-demand analysis extraction complete | bookId={} | pages={}", bookId, extracted.getPageCount());

@@ -36,6 +36,7 @@ public final class RegisterPageRenderer {
                                 .div(bd -> bd
                                     .raw(error != null ? "<div class=\"alert alert-danger\">" + escapeHtml(error) + "</div>" : "")
                                     .form("/register", "post", form -> form
+                                        .input("hidden", ctx.csrfParameterName(), "value", ctx.csrfToken())
                                         .div(group -> group
                                             .label(ctx.getMessage("register.name")).attr("for", "name")
                                             .input("text", "name", "id", "name", "class", "form-control")

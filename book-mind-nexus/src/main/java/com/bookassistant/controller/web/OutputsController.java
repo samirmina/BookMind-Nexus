@@ -2,7 +2,6 @@ package com.bookassistant.controller.web;
 
 import com.bookassistant.service.infrastructure.BookOutputService;
 import com.bookassistant.session.BookSession;
-import com.bookassistant.service.telemetry.TelemetryService;
 import com.bookassistant.util.LoggingUtils;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
@@ -27,12 +26,10 @@ public class OutputsController {
 
     private final BookOutputService bookOutputService;
     private final BookSession bookSession;
-    private final TelemetryService telemetryService;
 
-    public OutputsController(BookOutputService bookOutputService, BookSession bookSession, TelemetryService telemetryService) {
+    public OutputsController(BookOutputService bookOutputService, BookSession bookSession) {
         this.bookOutputService = bookOutputService;
         this.bookSession = bookSession;
-        this.telemetryService = telemetryService;
     }
 
     @GetMapping("/outputs")
@@ -47,18 +44,24 @@ public class OutputsController {
             return "redirect:/login";
         }
 
+        if (page < 0) {
+            page = 0;
+        }
+
         List<com.bookassistant.entity.BookOutput> outputs;
         int totalPages;
 
         if (tab != null && !tab.isBlank()) {
             outputs = bookOutputService.findByUserIdAndTabUsed(userId, tab);
             totalPages = (outputs.size() / PAGE_SIZE) + 1;
-            outputs = outputs.subList(page * PAGE_SIZE, Math.min((page + 1) * PAGE_SIZE, outputs.size()));
+            int fromIndex = Math.min(page * PAGE_SIZE, outputs.size());
+            outputs = outputs.subList(fromIndex, Math.min((page + 1) * PAGE_SIZE, outputs.size()));
             model.addAttribute("filterTab", tab);
         } else {
             outputs = bookOutputService.findByUserId(userId);
             totalPages = (outputs.size() / PAGE_SIZE) + 1;
-            outputs = outputs.subList(page * PAGE_SIZE, Math.min((page + 1) * PAGE_SIZE, outputs.size()));
+            int fromIndex = Math.min(page * PAGE_SIZE, outputs.size());
+            outputs = outputs.subList(fromIndex, Math.min((page + 1) * PAGE_SIZE, outputs.size()));
         }
 
         model.addAttribute("outputs", outputs);
@@ -84,11 +87,9 @@ public class OutputsController {
 
         try {
             bookOutputService.deleteOutput(id, userId);
-            telemetryService.logEvent("output", "delete_output", "info", userId, null, null, "book_output", id, "Output deleted", null, null, null);
         } catch (Exception e) {
             LoggingUtils.exception(log, "deleteOutput", e);
             log.error("Failed to delete output: {}", id, e);
-            telemetryService.logEvent("output", "delete_output_failed", "error", userId, null, null, "book_output", id, "Failed to delete output: " + e.getMessage(), null, e.getStackTrace().toString(), null);
         }
 
         String redirectUrl = "/outputs";

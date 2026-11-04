@@ -32,9 +32,13 @@ public class RequestLoggingFilter implements Filter {
 
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
 
-    // Paths to exclude from detailed logging (static resources, health checks)
     private static final Set<String> EXCLUDED_PATHS = new HashSet<>(Arrays.asList(
         "/styles.css", "/js/", "/images/", "/favicon.ico", "/actuator/health"
+    ));
+
+    // OAuth-sensitive query parameters that must be masked in logs
+    private static final Set<String> SENSITIVE_QUERY_PARAMS = new HashSet<>(Arrays.asList(
+        "code", "state", "access_token", "refresh_token", "error", "error_description"
     ));
 
     /**
@@ -97,12 +101,40 @@ public class RequestLoggingFilter implements Filter {
 
         if (log.isInfoEnabled()) {
             log.info("HTTP_REQUEST | method={} | uri={}{} | remoteAddr={} | correlationId={}", 
-                method, uri, queryString != null ? "?" + queryString : "", remoteAddr, correlationId);
+                method, uri, queryString != null ? "?" + maskSensitiveQueryParams(queryString) : "", remoteAddr, correlationId);
         }
 
         if (log.isDebugEnabled()) {
             log.debug("HTTP_REQUEST_HEADERS | userAgent={} | correlationId={}", userAgent, correlationId);
         }
+    }
+
+    /**
+     * Masks sensitive OAuth query parameters (code, state, access_token, etc.) so
+     * they are not written to application logs.
+     */
+    private static String maskSensitiveQueryParams(String queryString) {
+        if (queryString == null || queryString.isBlank()) {
+            return queryString;
+        }
+        String[] params = queryString.split("&");
+        StringBuilder masked = new StringBuilder();
+        for (int i = 0; i < params.length; i++) {
+            if (i > 0) masked.append('&');
+            String param = params[i];
+            int eqIdx = param.indexOf('=');
+            if (eqIdx > 0) {
+                String key = param.substring(0, eqIdx);
+                if (SENSITIVE_QUERY_PARAMS.contains(key)) {
+                    masked.append(key).append("=***");
+                } else {
+                    masked.append(param);
+                }
+            } else {
+                masked.append(param);
+            }
+        }
+        return masked.toString();
     }
 
     /**

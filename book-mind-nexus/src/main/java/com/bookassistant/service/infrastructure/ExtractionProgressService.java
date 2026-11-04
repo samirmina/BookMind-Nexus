@@ -4,11 +4,16 @@ import com.bookassistant.model.BookData;
 import com.bookassistant.service.file.BookExtractionJob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -21,9 +26,12 @@ public class ExtractionProgressService {
     private final RuntimeLogService runtimeLogService;
     private final ExecutorService sendExecutor = new ThreadPoolExecutor(
             4, 8, 60L, TimeUnit.SECONDS,
-            new java.util.concurrent.LinkedBlockingQueue<>(100),
+            new LinkedBlockingQueue<>(100),
             r -> new Thread(r, "sse-sender-" + System.currentTimeMillis()),
             new ThreadPoolExecutor.CallerRunsPolicy()
+    );
+    private final ScheduledExecutorService heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(
+            r -> new Thread(r, "sse-heartbeat-" + System.currentTimeMillis())
     );
 
     public ExtractionProgressService(BookExtractionJobRegistry registry, RuntimeLogService runtimeLogService) {
@@ -156,13 +164,14 @@ public class ExtractionProgressService {
         scheduleHeartbeat(jobId, emitter);
     }
 
-    @org.springframework.context.event.EventListener(org.springframework.context.event.ContextClosedEvent.class)
+    @EventListener(ContextClosedEvent.class)
     public void shutdown() {
         sendExecutor.shutdownNow();
+        heartbeatScheduler.shutdownNow();
     }
 
     private void scheduleHeartbeat(String jobId, SseEmitter emitter) {
-        java.util.concurrent.Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
+        heartbeatScheduler.scheduleAtFixedRate(() -> {
             try {
                 BookExtractionJob job = registry.get(jobId);
                 if (job == null || job.status() == BookExtractionJob.JobStatus.COMPLETED

@@ -49,19 +49,20 @@ public class OnDemandExtractionService {
     /**
      * Extracts text from a specific page range of a saved book.
      *
-     * @param bookId    the persisted book ID
+     * @param bookId   the persisted book ID
+     * @param userId   the owning user ID (IDOR protection)
      * @param startPage 1-based start page (inclusive)
      * @param endPage   1-based end page (inclusive)
      * @return BookData containing only the requested pages
      * @throws IOException if the PDF cannot be read
      */
-    public BookData extractPages(long bookId, int startPage, int endPage) throws IOException {
+    public BookData extractPages(long bookId, Long userId, int startPage, int endPage) throws IOException {
         runtimeLogService.info(COMPONENT, String.valueOf(bookId), "Extracting pages", java.util.Map.of(
                 "startPage", startPage,
                 "endPage", endPage
         ));
 
-        java.util.Optional<byte[]> pdfBytesOpt = bookStorageService.loadPdf(bookId);
+        java.util.Optional<byte[]> pdfBytesOpt = bookStorageService.loadPdf(bookId, userId);
         if (pdfBytesOpt.isEmpty()) {
             throw new IOException("Book PDF not found on disk | bookId=" + bookId);
         }

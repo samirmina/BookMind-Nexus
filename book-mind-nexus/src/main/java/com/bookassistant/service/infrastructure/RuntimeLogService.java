@@ -46,6 +46,11 @@ public class RuntimeLogService {
     private static final String COMPONENT_SERVICE = "ExtractionProgressService";
     private static final String COMPONENT_PARSER = "FileParserService";
 
+    // Bounded in-memory retention to prevent unbounded memory growth.
+    private static final int MAX_ENTRIES_PER_JOB = 500;
+    private static final int MAX_TOTAL_ENTRIES = 5000;
+    private static final long ENTRY_TTL_MS = 24 * 60 * 60 * 1000;
+
     private final Map<String, List<Entry>> entriesByJob = new ConcurrentHashMap<>();
     private final UserRepository userRepository;
 
@@ -98,7 +103,28 @@ public class RuntimeLogService {
         long now = System.currentTimeMillis();
         Entry entry = new Entry(id, component, jobId, level, message, new LinkedHashMap<>(details), now);
 
-        entriesByJob.computeIfAbsent(jobId, k -> new ArrayList<>()).add(entry);
+        List<Entry> list = entriesByJob.computeIfAbsent(jobId, k -> new ArrayList<>());
+        list.add(entry);
+
+        // Evict entries older than the TTL and cap per-job list size.
+        long cutoff = now - ENTRY_TTL_MS;
+        list.removeIf(e -> e.timestampMillis() < cutoff);
+        while (list.size() > MAX_ENTRIES_PER_JOB) {
+            list.remove(0);
+        }
+
+        // Global cap: drop the oldest entries across all jobs.
+        int total = entriesByJob.values().stream().mapToInt(List::size).sum();
+        int excess = total - MAX_TOTAL_ENTRIES;
+        if (excess > 0) {
+            var remaining = new java.util.concurrent.atomic.AtomicInteger(excess);
+            entriesByJob.values().forEach(l -> {
+                while (remaining.get() > 0 && !l.isEmpty()) {
+                    l.remove(0);
+                    remaining.decrementAndGet();
+                }
+            });
+        }
 
         if (level == Level.ERROR) {
             log.error("[runtime-log] component={} | jobId={} | message={} | details={}", component, jobId, message, details);

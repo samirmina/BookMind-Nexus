@@ -43,7 +43,7 @@ public class ExtractionProgressController {
     public SseEmitter streamProgress(@PathVariable String jobId) {
         log.info("SSE connection opened | jobId={}", jobId);
         runtimeLogService.info(COMPONENT_PROGRESS, jobId, "SSE connection opened");
-        SseEmitter emitter = new SseEmitter(TimeUnit.MINUTES.toMillis(30));
+        SseEmitter emitter = new SseEmitter(TimeUnit.MINUTES.toMillis(5));
         extractionProgressService.registerEmitter(jobId, emitter);
 
         emitter.onCompletion(() -> {

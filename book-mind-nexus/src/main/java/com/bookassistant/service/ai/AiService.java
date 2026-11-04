@@ -6,6 +6,7 @@ import com.bookassistant.util.LoggingUtils;
 import com.bookassistant.util.StringUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,11 +57,17 @@ public class AiService {
     // WORKAROUND: Bounded thread pool to prevent resource exhaustion under concurrent load
     // NOTE: Should be replaced with a proper connection-pooled client before production scale
     private static final int MAX_HTTP_THREADS = 10;
+    private static final ExecutorService httpExecutor = Executors.newFixedThreadPool(MAX_HTTP_THREADS);
     private static final HttpClient httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
-        .executor(Executors.newFixedThreadPool(MAX_HTTP_THREADS))
+        .executor(httpExecutor)
         .build();
-    
+
+    @PreDestroy
+    public void destroy() {
+        httpExecutor.shutdown();
+    }
+
     private final ObjectMapper mapper;
     private final AiProperties properties;
     private final RagService ragService;
@@ -334,8 +342,8 @@ public class AiService {
             return "AI error: Failed to serialize request - " + e.getMessage();
         }
 
-        log.info("AI request payload | requestId={} | model={} | requestSize={} bytes | body={}",
-            requestId, properties.getModel(), json.length(), json);
+        log.info("AI request payload | requestId={} | model={} | requestSize={} bytes",
+            requestId, properties.getModel(), json.length());
 
         HttpRequest request = buildHttpRequest(json);
         IOException lastException = null;
@@ -359,8 +367,7 @@ public class AiService {
                     log.info("AI response received | requestId={} | status=success | contentLen={}", requestId, content.length());
                     return content;
                 } else {
-                    log.error("Ollama error | requestId={} | status={} | body={}", requestId, response.statusCode(),
-                        response.body());
+                    log.error("Ollama error | requestId={} | status={}", requestId, response.statusCode());
                     return "AI error: HTTP " + response.statusCode();
                 }
 
@@ -448,13 +455,15 @@ public class AiService {
      * @return the built HTTP request
      */
     private HttpRequest buildHttpRequest(String json) {
+        String baseUrl = properties.getBaseUrl();
+        validateOutboundUrl(baseUrl);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
-            .uri(URI.create(properties.getBaseUrl()))
+            .uri(URI.create(baseUrl))
             .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8));
 
-        if (!isLocalUrl(properties.getBaseUrl())) {
+        if (!isLocalUrl(baseUrl)) {
             builder.header("Authorization", "Bearer " + properties.getApiKey());
         }
 
@@ -696,6 +705,79 @@ public class AiService {
             log.warn("Failed to parse URL for local check | url={}", LoggingUtils.safeLog(url, 100));
             return false;
         }
+    }
+
+    /**
+     * Validates that a configured AI base URL is safe to call outbound.
+     * <p>
+     * Rejects non-HTTP(S) schemes and any host that resolves to a link-local or
+     * site-local (private) address, unless the host is an explicit loopback
+     * alias (localhost / 127.0.0.1 / ::1) used for local development. This
+     * prevents SSRF where a misconfigured {@code app.ai.base-url} could reach
+     * internal metadata services (e.g. IMDS at 169.254.169.254).
+     *
+     * @param url the base URL to validate
+     * @throws IllegalArgumentException if the URL is not a safe outbound target
+     */
+    private void validateOutboundUrl(String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("AI base URL must not be blank");
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(url);
+            String scheme = uri.getScheme();
+            if (scheme == null || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+                throw new IllegalArgumentException("AI base URL must use http or https scheme: " + LoggingUtils.safeLog(url, 100));
+            }
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                throw new IllegalArgumentException("AI base URL must include a host: " + LoggingUtils.safeLog(url, 100));
+            }
+            boolean isExplicitLoopback = "localhost".equalsIgnoreCase(host)
+                || "127.0.0.1".equals(host)
+                || "0:0:0:0:0:0:0:1".equals(host)
+                || "::1".equals(host);
+            java.net.InetAddress address = java.net.InetAddress.getByName(host);
+            // Allow only explicit loopback hostnames or addresses that resolve to loopback.
+            // Reject link-local, site-local, and RFC1918/CGN private ranges to prevent SSRF
+            // to internal metadata services (e.g. IMDS at 169.254.169.254).
+            if (isExplicitLoopback || address.isLoopbackAddress()) {
+                return;
+            }
+            if (address.isLinkLocalAddress() || address.isSiteLocalAddress() || isPrivateAddress(address)) {
+                throw new IllegalArgumentException("AI base URL must not target a private/link-local host: " + LoggingUtils.safeLog(url, 100));
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to validate AI base URL: " + LoggingUtils.safeLog(url, 100), e);
+        }
+    }
+
+    /**
+     * Returns true when the address falls in RFC1918 / carrier-grade NAT private ranges
+     * (10/8, 172.16/12, 192.168/16, 100.64/10) that {@link InetAddress#isSiteLocalAddress}
+     * does not reliably cover.
+     */
+    private static boolean isPrivateAddress(java.net.InetAddress address) {
+        byte[] addr = address.getAddress();
+        if (addr.length == 4) {
+            int a = addr[0] & 0xFF;
+            int b = addr[1] & 0xFF;
+            if (a == 10) {
+                return true;
+            }
+            if (a == 172 && (b & 0xF0) == 16) {
+                return true;
+            }
+            if (a == 192 && b == 168) {
+                return true;
+            }
+            if (a == 100 && (b & 0xC0) == 64) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

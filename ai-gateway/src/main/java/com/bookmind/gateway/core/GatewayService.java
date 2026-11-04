@@ -143,12 +143,17 @@ public class GatewayService {
      * Generate embeddings using the best available provider.
      */
     public List<float[]> embed(List<String> texts, String preferredModel) {
-        AiProvider provider = providerFactory.getAvailableProviders().stream()
+        List<AiProvider> providers = providerFactory.getAvailableProviders();
+        if (providers.isEmpty()) {
+            return texts.stream().map(t -> new float[0]).toList();
+        }
+
+        AiProvider provider = providers.stream()
             .filter(p -> p.getSupportedModels().stream()
                 .anyMatch(m -> m.type().equals("embedding") &&
                     (preferredModel == null || m.id().equals(preferredModel))))
             .findFirst()
-            .orElseGet(() -> providerFactory.getAvailableProviders().get(0));
+            .orElse(providers.get(0));
 
         String model = preferredModel != null ? preferredModel :
             provider.getSupportedModels().stream()

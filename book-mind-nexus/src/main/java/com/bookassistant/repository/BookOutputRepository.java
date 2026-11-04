@@ -3,6 +3,7 @@ package com.bookassistant.repository;
 import com.bookassistant.entity.BookOutput;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -29,4 +30,8 @@ public interface BookOutputRepository extends JpaRepository<BookOutput, Long> {
 
     @Query("SELECT b FROM BookOutput b WHERE b.userId = :userId AND b.tabUsed = :tabUsed ORDER BY b.createdAt DESC")
     List<BookOutput> findByUserIdAndTabUsedOrderByCreatedAtDesc(@Param("userId") Long userId, @Param("tabUsed") String tabUsed);
+
+    @Modifying
+    @Query("DELETE FROM BookOutput b WHERE b.bookId = :bookId")
+    void deleteByBookId(@Param("bookId") Long bookId);
 }

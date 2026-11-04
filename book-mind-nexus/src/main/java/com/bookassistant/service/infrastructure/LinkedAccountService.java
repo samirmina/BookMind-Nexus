@@ -115,21 +115,23 @@ public class LinkedAccountService {
     }
 
     /**
-     * Updates tokens for an existing linked account.
+     * Updates tokens for an existing linked account, verifying the account belongs to
+     * the given user (IDOR protection).
      *
-     * @param accountId    the linked account ID
-     * @param accessToken  the new access token
-     * @param refreshToken the new refresh token
-     * @param tokenExpiry  the new expiry timestamp
+     * @param userId        the owning user ID
+     * @param accountId     the linked account ID
+     * @param accessToken   the new access token
+     * @param refreshToken  the new refresh token
+     * @param tokenExpiry   the new expiry timestamp
      */
-    public void updateTokens(Long accountId, String accessToken, String refreshToken, java.time.LocalDateTime tokenExpiry) {
-        LoggingUtils.enter(log, "updateTokens", "accountId", accountId);
-        LinkedAccount account = linkedAccountRepository.findById(accountId).orElseThrow();
+    public void updateTokens(Long userId, Long accountId, String accessToken, String refreshToken, java.time.LocalDateTime tokenExpiry) {
+        LoggingUtils.enter(log, "updateTokens", "accountId", accountId, "userId", userId);
+        LinkedAccount account = linkedAccountRepository.findByIdAndUserId(accountId, userId).orElseThrow();
         account.setAccessToken(accessToken);
         account.setRefreshToken(refreshToken);
         account.setTokenExpiry(tokenExpiry);
         linkedAccountRepository.save(account);
-        log.info("Tokens updated | accountId={}", accountId);
+        log.info("Tokens updated | accountId={} | userId={}", accountId, userId);
     }
 }
 

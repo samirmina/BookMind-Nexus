@@ -35,16 +35,91 @@ public class Pix2TextExtractionClient {
     private final int timeoutSeconds;
     private final RuntimeLogService runtimeLogService;
     private static final String COMPONENT_PIX2TEXT = "Pix2TextExtractionClient";
+    private static final int MAX_READ_TIMEOUT_SECONDS = 300;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public Pix2TextExtractionClient(
             @Value("${app.extraction.pix2text.url:http://localhost:8080}") String baseUrl,
-            @Value("${app.extraction.pix2text.timeout:7200s}") java.time.Duration timeout,
+            @Value("${app.extraction.pix2text.timeout:7200s}") String timeoutValue,
             RuntimeLogService runtimeLogService) {
         this.baseUrl = baseUrl;
-        this.timeoutSeconds = (int) timeout.getSeconds();
+        this.timeoutSeconds = parseTimeoutSeconds(timeoutValue);
         this.runtimeLogService = runtimeLogService;
-        log.info("Pix2TextExtractionClient initialized | baseUrl={} | timeout={}", baseUrl, timeout);
+        validateOutboundUrl(baseUrl);
+        log.info("Pix2TextExtractionClient initialized | baseUrl={} | timeout={}s", baseUrl, timeoutSeconds);
+    }
+
+    /**
+     * Validates that the Pix2Text base URL is safe to call outbound.
+     * Rejects non-HTTP(S) schemes and private/link-local hosts unless explicitly
+     * localhost, preventing SSRF to internal metadata services.
+     */
+    private static void validateOutboundUrl(String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalStateException("Pix2Text base URL must not be blank");
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(url);
+            String scheme = uri.getScheme();
+            if (scheme == null || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+                throw new IllegalStateException("Pix2Text base URL must use http or https scheme");
+            }
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                throw new IllegalStateException("Pix2Text base URL must include a host");
+            }
+            boolean isExplicitLoopback = "localhost".equalsIgnoreCase(host)
+                || "127.0.0.1".equals(host)
+                || "0:0:0:0:0:0:0:1".equals(host)
+                || "::1".equals(host);
+            java.net.InetAddress address = java.net.InetAddress.getByName(host);
+            if (isExplicitLoopback || address.isLoopbackAddress()) {
+                return;
+            }
+            if (address.isLinkLocalAddress() || address.isSiteLocalAddress() || isPrivateAddress(address)) {
+                throw new IllegalStateException("Pix2Text base URL must not target a private/link-local host");
+            }
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to validate Pix2Text base URL: " + url, e);
+        }
+    }
+
+    private static boolean isPrivateAddress(java.net.InetAddress address) {
+        byte[] addr = address.getAddress();
+        if (addr.length == 4) {
+            int a = addr[0] & 0xFF;
+            int b = addr[1] & 0xFF;
+            if (a == 10) {
+                return true;
+            }
+            if (a == 172 && (b & 0xF0) == 16) {
+                return true;
+            }
+            if (a == 192 && b == 168) {
+                return true;
+            }
+            if (a == 100 && (b & 0xC0) == 64) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int parseTimeoutSeconds(String timeoutValue) {
+        if (timeoutValue == null || timeoutValue.isBlank()) {
+            return 7200;
+        }
+        String v = timeoutValue.trim();
+        if (v.endsWith("s")) {
+            v = v.substring(0, v.length() - 1);
+        }
+        try {
+            return Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            return 7200;
+        }
     }
 
     /**
@@ -97,7 +172,7 @@ public class Pix2TextExtractionClient {
             connection = (HttpURLConnection) new URL(url).openConnection();
             runtimeLogService.info(COMPONENT_PIX2TEXT, "unknown", "HTTP connection opened", Map.of("url", url));
             connection.setConnectTimeout(60_000);
-            connection.setReadTimeout(timeoutSeconds * 1000);
+            connection.setReadTimeout(Math.min(timeoutSeconds, MAX_READ_TIMEOUT_SECONDS) * 1000);
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
             connection.setRequestProperty("Content-Length", String.valueOf(body.length));
@@ -213,10 +288,10 @@ public class Pix2TextExtractionClient {
             log.warn("Pix2Text RAW response is null/blank | fileName={}", fileName);
             return;
         }
-        // Log first 2000 chars to avoid flooding console, but enough to see full page objects
-        String preview = json.length() > 2000 ? json.substring(0, 2000) + "...[TRUNCATED]" : json;
-        log.info("Pix2Text RAW JSON response | fileName={} | totalLength={} | preview={}",
-            fileName, json.length(), preview);
+        // Log only the response length; never log the extracted body content here
+        // to avoid writing user book text to the application log.
+        log.info("Pix2Text RAW JSON response | fileName={} | totalLength={}",
+            fileName, json.length());
     }
 
     /**
@@ -258,8 +333,7 @@ public class Pix2TextExtractionClient {
                             text.contains("<math>") || text.contains("$$") || text.contains("\\("));
 
                 if (isBlank) {
-                    log.warn("Pix2Text page {} has EMPTY/NULL text | fileName={} | rawPayload around page: {}",
-                        resolvedPage, fileName, json.substring(Math.max(0, json.indexOf("\"page\":") + 1), Math.min(json.length(), json.indexOf("\"page\":") + 200)));
+                    log.warn("Pix2Text page {} has EMPTY/NULL text | fileName={}", resolvedPage, fileName);
                 } else {
                     log.info("Pix2Text page {} | chars={} | hasMath={} | fileName={}",
                         resolvedPage, charCount, hasMath, fileName);
