@@ -69,7 +69,6 @@ public final class HtmlBuilder {
             sb.append(" ").append(attrs[i]).append("=\"").append(escape(attrs[i + 1])).append("\"");
         }
         sb.append(" />");
-        lastTagEnd = sb.length();
         return this;
     }
 
