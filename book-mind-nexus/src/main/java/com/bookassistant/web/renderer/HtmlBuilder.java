@@ -51,9 +51,11 @@ public final class HtmlBuilder {
             sb.append(" ").append(attrs[i]).append("=\"").append(escape(attrs[i + 1])).append("\"");
         }
         sb.append(">");
-        lastTagEnd = sb.length() - 1; // point to '>' so attributes insert before it
+        int savedTagEnd = lastTagEnd;
+        lastTagEnd = sb.length() - 1;
         indentLevel++;
         content.accept(this);
+        lastTagEnd = savedTagEnd;
         indentLevel--;
         indent();
         sb.append("</").append(name).append(">");
