@@ -360,25 +360,8 @@ private int lastTagEnd = -1;
     public HtmlBuilder attr(String name, String value) {
         if (lastTagEnd >= 0) {
             String attrStr = " " + name + "=\"" + escape(value) + "\"";
-            int attrStart = sb.lastIndexOf(" " + name + "=", lastTagEnd);
-            if (attrStart >= 0) {
-                int attrEnd = sb.indexOf("\"", attrStart + name.length() + 2);
-                if (attrEnd > attrStart) {
-                    // Append to existing attribute value (space-separated)
-                    String existing = sb.substring(attrStart + name.length() + 2, attrEnd);
-                    String combined = existing + " " + value;
-                    String replacement = " " + name + "=\"" + escape(combined) + "\"";
-                    int oldLen = attrEnd + 1 - attrStart;
-                    sb.replace(attrStart, attrEnd + 1, replacement);
-                    lastTagEnd += (replacement.length() - oldLen);
-                } else {
-                    sb.insert(lastTagEnd, attrStr);
-                    lastTagEnd += attrStr.length();
-                }
-            } else {
-                sb.insert(lastTagEnd, attrStr);
-                lastTagEnd += attrStr.length();
-            }
+            sb.insert(lastTagEnd, attrStr);
+            lastTagEnd += attrStr.length();
         }
         return this;
     }
