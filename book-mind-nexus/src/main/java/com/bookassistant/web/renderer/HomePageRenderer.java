@@ -15,7 +15,7 @@ public final class HomePageRenderer {
                     .title(ctx.getMessage("home.title"))
                     .link("https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css", "stylesheet")
                     .link("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap", "stylesheet")
-                    .link("/styles.css", "stylesheet")
+                    .style(s -> LayoutRenderer.renderStyles(s, ctx))
                 )
                 .body(body -> body
                     .nav(nav -> renderNavbar(nav, ctx))
@@ -107,7 +107,5 @@ public final class HomePageRenderer {
     }
 
     private static void renderScripts(HtmlBuilder s, PageContext ctx) {
-        s.attr("src", "/js/ui-audit.js");
-        s.attr("defer", "defer");
     }
 }

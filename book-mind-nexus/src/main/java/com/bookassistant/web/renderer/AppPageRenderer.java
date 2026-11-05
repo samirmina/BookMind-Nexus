@@ -15,7 +15,7 @@ public final class AppPageRenderer {
                     .title(ctx.getMessage("app.title"))
                     .link("https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css", "stylesheet")
                     .link("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap", "stylesheet")
-                    .link("/styles.css", "stylesheet")
+                    .style(s -> LayoutRenderer.renderStyles(s, ctx))
                     .link("https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css", "stylesheet")
                 )
                 .body(body -> body
@@ -31,7 +31,6 @@ public final class AppPageRenderer {
                     )
                     .footer(f -> LayoutRenderer.renderFooter(f, ctx))
                     .script(s -> LayoutRenderer.renderScripts(s, ctx))
-                    .script(s -> s.attr("src", "/js/app.js").attr("defer", "defer"))
                 )
             )
             .build();

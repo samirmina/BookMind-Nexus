@@ -128,11 +128,30 @@ public final class LayoutRenderer {
     public static void renderScripts(HtmlBuilder s, PageContext ctx) {
         s.attr("src", "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js");
         s.raw("\n");
-        s.attr("src", "/js/collapsible.js");
-        s.raw("\n");
         s.attr("src", "https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js");
         s.raw("\n");
-        s.attr("src", "/js/ui-audit.js");
-        s.attr("defer", "defer");
+    }
+
+    public static void renderStyles(HtmlBuilder s, PageContext ctx) {
+        s.raw("\n");
+        s.raw("<style>");
+        s.raw(".brand-icon{font-size:1.5rem;margin-right:0.5rem}");
+        s.raw(".hero-ar,.hero-en{font-size:1.25rem;font-weight:600;margin-bottom:0.5rem}");
+        s.raw(".hero-title{font-size:2.5rem;font-weight:700;margin-bottom:1rem}");
+        s.raw(".hero-actions{display:flex;gap:1rem}");
+        s.raw(".btn-primary-hero{background:var(--bs-primary);color:white;border:none;padding:0.75rem 1.5rem;border-radius:0.5rem;text-decoration:none}");
+        s.raw(".btn-secondary-hero{border:2px solid var(--bs-primary);color:var(--bs-primary);padding:0.75rem 1.5rem;border-radius:0.5rem;text-decoration:none}");
+        s.raw(".feature-icon{font-size:2rem;margin-bottom:0.5rem}");
+        s.raw(".feature-card{padding:1rem;border:1px solid var(--bs-border-color);border-radius:0.5rem;margin-bottom:1rem}");
+        s.raw(".section-title{font-size:1.5rem;font-weight:600;margin-bottom:1rem}");
+        s.raw(".steps-grid{display:flex;gap:1rem}");
+        s.raw(".step{flex:1;padding:1rem;border:1px solid var(--bs-border-color);border-radius:0.5rem}");
+        s.raw(".step-num{font-size:2rem;font-weight:700;color:var(--bs-primary);display:block;margin-bottom:0.5rem}");
+        s.raw(".auth-card{max-width:400px;width:100%}");
+        s.raw(".navbar-inner{background:var(--bs-dark)}");
+        s.raw("</style>");
+        s.raw("\n");
+        s.raw("<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%3E%3C/svg%3E\" type=\"image/svg+xml\">");
+        s.raw("\n");
     }
 }
