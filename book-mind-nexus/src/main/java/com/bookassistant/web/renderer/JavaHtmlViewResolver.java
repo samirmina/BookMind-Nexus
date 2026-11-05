@@ -13,43 +13,34 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * ViewResolver that maps logical view names to pure Java HTML renderer output.
- * Replaces Thymeleaf entirely—no templates, no front-end resources.
+ * ViewResolver that maps ALL logical view names to the DynamicPageRenderer.
+ * The DynamicPageRenderer assembles pages from component renderers registered
+ * in the ComponentRegistry, ensuring every backend feature has a frontend
+ * counterpart.
  * <p>
- * Mappings:
- * <ul>
- *   <li>{@code "home"} → {@link HomePageRenderer}</li>
- *   <li>{@code "about"} → {@link AboutPageRenderer}</li>
- *   <li>{@code "contact"} → {@link ContactPageRenderer}</li>
- *   <li>{@code "auth/register"} → {@link RegisterPageRenderer}</li>
- *   <li>{@code "auth/login"} → {@link LoginPageRenderer}</li>
- *   <li>{@code "index"} → {@link AppPageRenderer}</li>
- * </ul>
+ * No Thymeleaf, no templates, no front-end resources—pure Java rendering.
  */
 public class JavaHtmlViewResolver implements ViewResolver {
 
+    private final ComponentRegistry registry;
+    private final DynamicPageRenderer dynamicRenderer;
+
+    public JavaHtmlViewResolver() {
+        this.registry = new ComponentRegistry();
+        // Register all feature component renderers
+        registry.register("qa", new QaComponentRenderer());
+        registry.register("summary", new SummaryComponentRenderer());
+        registry.register("analysis", new AnalysisComponentRenderer());
+        registry.register("search", new SearchComponentRenderer());
+        registry.register("comprehension", new ComprehensionComponentRenderer());
+        registry.register("actionPlan", new ActionPlanComponentRenderer());
+        this.dynamicRenderer = new DynamicPageRenderer(registry);
+    }
+
     @Override
     public View resolveViewName(String viewName, Locale locale) throws Exception {
-        switch (viewName) {
-            case "home":
-                return new JavaHtmlView(HomePageRenderer::render);
-            case "about":
-                return new JavaHtmlView(AboutPageRenderer::render);
-            case "contact":
-                return new JavaHtmlView(ContactPageRenderer::render);
-            case "auth/register":
-                return new JavaHtmlView(RegisterPageRenderer::render);
-            case "auth/login":
-                return new JavaHtmlView(LoginPageRenderer::render);
-            case "index":
-                return new JavaHtmlView(AppPageRenderer::render);
-            case "outputs/index":
-                return new JavaHtmlView(OutputsPageRenderer::render);
-            case "accounts/index":
-                return new JavaHtmlView(AccountsPageRenderer::render);
-            default:
-                return null;
-        }
+        // All view names are handled by the DynamicPageRenderer
+        return new JavaHtmlView((ctx, model) -> dynamicRenderer.render(ctx, model, viewName));
     }
 
     /**
@@ -57,9 +48,9 @@ public class JavaHtmlViewResolver implements ViewResolver {
      */
     private static class JavaHtmlView implements View {
 
-        private final java.util.function.Function<PageContext, String> renderer;
+        private final java.util.function.BiFunction<PageContext, Map<String, Object>, String> renderer;
 
-        private JavaHtmlView(java.util.function.Function<PageContext, String> renderer) {
+        private JavaHtmlView(java.util.function.BiFunction<PageContext, Map<String, Object>, String> renderer) {
             this.renderer = renderer;
         }
 
@@ -101,9 +92,6 @@ public class JavaHtmlViewResolver implements ViewResolver {
                 Object cacheBookName = model.get("cacheBookName");
                 if (cacheBookName != null) builder.attr("cacheBookName", cacheBookName.toString());
 
-                Object cacheTotalImages = model.get("cacheTotalImages");
-                if (cacheTotalImages != null) builder.attr("cacheTotalImages", cacheTotalImages);
-
                 Object error = model.get("error");
                 if (error != null) builder.attr("error", error.toString());
 
@@ -132,7 +120,16 @@ public class JavaHtmlViewResolver implements ViewResolver {
             }
 
             PageContext ctx = builder.build();
-            String html = renderer.apply(ctx);
+
+            // Convert model to Map<String, Object> for the renderer
+            Map<String, Object> modelMap = new java.util.HashMap<>();
+            if (model != null) {
+                for (Map.Entry<String, ?> entry : model.entrySet()) {
+                    modelMap.put(entry.getKey(), entry.getValue());
+                }
+            }
+
+            String html = renderer.apply(ctx, modelMap);
 
             response.setContentType(getContentType());
             response.setCharacterEncoding("UTF-8");
