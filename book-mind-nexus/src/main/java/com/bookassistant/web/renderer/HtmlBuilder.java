@@ -364,9 +364,13 @@ private int lastTagEnd = -1;
             if (attrStart >= 0) {
                 int attrEnd = sb.indexOf("\"", attrStart + name.length() + 2);
                 if (attrEnd > attrStart) {
+                    // Append to existing attribute value (space-separated)
+                    String existing = sb.substring(attrStart + name.length() + 2, attrEnd);
+                    String combined = existing + " " + value;
+                    String replacement = " " + name + "=\"" + escape(combined) + "\"";
                     int oldLen = attrEnd + 1 - attrStart;
-                    sb.replace(attrStart, attrEnd + 1, attrStr);
-                    lastTagEnd += (attrStr.length() - oldLen);
+                    sb.replace(attrStart, attrEnd + 1, replacement);
+                    lastTagEnd += (replacement.length() - oldLen);
                 } else {
                     sb.insert(lastTagEnd, attrStr);
                     lastTagEnd += attrStr.length();
