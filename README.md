@@ -60,6 +60,12 @@ BookMind-Nexus/
 │       ├── providers/              # Ollama, OpenAI, Anthropic, Google Vertex adapters
 │       ├── telemetry/              # Gateway telemetry recording
 ├── src/                            # Root resources (config, SQL schemas, messages)
+├── Dockerfile.ollama               # Ollama LLM service Dockerfile
+├── .env                            # Environment variables (gitignored)
+└── extraction-service/             # Pix2Text PDF extraction microservice
+    ├── Dockerfile
+    ├── main.py
+    └── requirements.txt
 ```
 
 ## Prerequisites
@@ -67,8 +73,10 @@ BookMind-Nexus/
 - Java 21 (JDK) for local builds
 - Maven 3.9+
 - Docker and Docker Compose (for containerized deployment)
-- PostgreSQL 16 with the `pgvector` extension (production)
+- PostgreSQL 16 with the `pgvector` extension (production) — provisioned via Neon
 - An AI provider: Ollama (local), OpenAI, Anthropic, or Google Vertex AI
+- Render account (for cloud deployment)
+- Neon account (for managed PostgreSQL)
 
 ## Configuration
 
@@ -114,9 +122,24 @@ Services:
 | Ollama (local LLM) | 11434 |
 | Pix2Text (PDF extraction) | 8080 |
 
-The `postgres` service is intentionally **commented out** in `docker-compose.yml`. You must provision PostgreSQL 16 + pgvector separately and supply `DB_*` environment variables before the application can start. The app expects the `users`, `books`, `book_chunks`, `linked_accounts`, `external_notes`, `reading_progress`, and `book_outputs` tables to exist (see `data.sql` for the development seed only — it is not a schema).
+The `postgres` service is intentionally **commented out** in `docker-compose.yml`. For production, provision PostgreSQL 16 + pgvector externally (e.g. Neon) and supply `DB_*` environment variables before the application can start. The app expects the `users`, `books`, `book_chunks`, `linked_accounts`, `external_notes`, `reading_progress`, and `book_outputs` tables to exist (see `data.sql` for the development seed only — it is not a schema).
 
 Access the app at `http://localhost:8083`.
+
+## Deploying on Render
+
+BookMind Nexus is deployed on Render as four web services:
+
+| Service | Render Name | URL |
+|---------|-------------|-----|
+| Main App | `bookmind-nexus-app` | `https://bookmind-nexus-app.onrender.com` |
+| AI Gateway | `bookmind-nexus-ai-gateway` | `https://bookmind-nexus-ai-gateway.onrender.com` |
+| Ollama LLM | `bookmind-nexus-ollama` | `https://bookmind-nexus-ollama.onrender.com` |
+| Pix2Text Extraction | `bookmind-nexus-pix2text` | `https://bookmind-nexus-pix2text.onrender.com` |
+
+Database: Neon (PostgreSQL 16 + pgvector), project `book-mind-nexus`.
+
+All services are built from Dockerfiles and deployed from the `feat/client-side-book-tool-and-deployment-cleanup` branch. Environment variables are set in the Render dashboard (see `.env.example` for the full list; `APP_ENCRYPTION_KEY` and `DB_PASSWORD` are required).
 
 ## Running locally
 
@@ -143,7 +166,7 @@ Set `SPRING_PROFILES_ACTIVE=local` and provide `DB_*` and `APP_ENCRYPTION_KEY` v
 
 ## Known limitations / deployment notes
 
-- The `postgres` service is commented out in `docker-compose.yml`; provision PostgreSQL + pgvector externally.
+- Database is hosted on Neon (PostgreSQL 16 + pgvector); the `postgres` service remains commented out in `docker-compose.yml` for local dev.
 - `data.sql` seeds a demo user (`demo@bookassistant.local`) and is intended for development only — do not run it against production.
 - Sessions are in-memory; horizontal scaling requires external session storage (Spring Session + Redis).
 - AI provider API keys passed in URLs (e.g. Google Vertex `?key=`) may appear in proxy/load-balancer access logs.
