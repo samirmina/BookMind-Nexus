@@ -25,46 +25,47 @@ public final class RegisterPageRenderer {
                     .link("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap", "stylesheet")
                     .style(s -> LayoutRenderer.renderStyles(s, ctx))
                 )
-                .body(body -> body
-                    .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
-                    .div(main -> main
-                        .div(container -> container
-                            .div(card -> card
-                                .div(header -> header
-                                    .h2(ctx.getMessage("register.title"))
-                                ).attr("class", "card-header")
-                                .div(bd -> bd
-                                    .raw(error != null ? "<div class=\"alert alert-danger\">" + escapeHtml(error) + "</div>" : "")
-                                    .form("/register", "post", form -> form
-                                        .input("hidden", ctx.csrfParameterName(), "value", ctx.csrfToken())
-                                        .div(group -> group
-                                            .label(ctx.getMessage("register.name")).attr("for", "name")
-                                            .input("text", "name", "id", "name", "class", "form-control")
-                                        ).attr("class", "mb-3")
-                                        .div(group -> group
-                                            .label(ctx.getMessage("register.email")).attr("for", "email")
-                                            .input("email", "email", "id", "email", "class", "form-control", "required", "required")
-                                        ).attr("class", "mb-3")
-                                        .div(group -> group
-                                            .label(ctx.getMessage("register.password")).attr("for", "password")
-                                            .input("password", "password", "id", "password", "class", "form-control", "required", "required")
-                                        ).attr("class", "mb-3")
-                                        .div(group -> group
-                                            .label(ctx.getMessage("register.confirm")).attr("for", "confirm")
-                                            .input("password", "confirm", "id", "confirm", "class", "form-control", "required", "required")
-                                        ).attr("class", "mb-3")
-                                        .button(btn -> btn.text(ctx.getMessage("register.submit"))).attr("type", "submit").attr("class", "btn btn-primary w-100")
-                                    )
-                                    .div(links -> links
-                                        .a("/login", a -> a.text(ctx.getMessage("login.title"))).attr("class", "text-muted")
-                                    ).attr("class", "text-center mt-3")
-                                ).attr("class", "card-body")
-                            ).attr("class", "card auth-card")
-                        ).attr("class", "container py-5 d-flex justify-content-center")
-                    )
-                    .footer(f -> LayoutRenderer.renderFooter(f, ctx))
-                    .script(s -> LayoutRenderer.renderScripts(s, ctx))
-                )
+                .body(body -> {
+                    body
+                        .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
+                        .div(main -> main
+                            .div(container -> container
+                                .div(card -> card
+                                    .div(header -> header
+                                        .h2(ctx.getMessage("register.title"))
+                                    ).attr("class", "card-header")
+                                    .div(bd -> bd
+                                        .raw(error != null ? "<div class=\"alert alert-danger\">" + escapeHtml(error) + "</div>" : "")
+                                        .form("/register", "post", form -> form
+                                            .input("hidden", ctx.csrfParameterName(), "value", ctx.csrfToken())
+                                            .div(group -> group
+                                                .label(ctx.getMessage("register.name")).attr("for", "name")
+                                                .input("text", "name", "id", "name", "class", "form-control")
+                                            ).attr("class", "mb-3")
+                                            .div(group -> group
+                                                .label(ctx.getMessage("register.email")).attr("for", "email")
+                                                .input("email", "email", "id", "email", "class", "form-control", "required", "required")
+                                            ).attr("class", "mb-3")
+                                            .div(group -> group
+                                                .label(ctx.getMessage("register.password")).attr("for", "password")
+                                                .input("password", "password", "id", "password", "class", "form-control", "required", "required")
+                                            ).attr("class", "mb-3")
+                                            .div(group -> group
+                                                .label(ctx.getMessage("register.confirm")).attr("for", "confirm")
+                                                .input("password", "confirm", "id", "confirm", "class", "form-control", "required", "required")
+                                            ).attr("class", "mb-3")
+                                            .button(btn -> btn.text(ctx.getMessage("register.submit"))).attr("type", "submit").attr("class", "btn btn-primary w-100")
+                                        )
+                                        .div(links -> links
+                                            .a("/login", a -> a.text(ctx.getMessage("login.title"))).attr("class", "text-muted")
+                                        ).attr("class", "text-center mt-3")
+                                    ).attr("class", "card-body")
+                                ).attr("class", "card auth-card")
+                            ).attr("class", "container py-5 d-flex justify-content-center")
+                        )
+                        .footer(f -> LayoutRenderer.renderFooter(f, ctx));
+                    LayoutRenderer.renderScripts(body, ctx);
+                })
             )
             .build();
     }

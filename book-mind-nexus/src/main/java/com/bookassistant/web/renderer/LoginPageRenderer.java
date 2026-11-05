@@ -25,44 +25,45 @@ public final class LoginPageRenderer {
                     .link("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap", "stylesheet")
                     .style(s -> LayoutRenderer.renderStyles(s, ctx))
                 )
-                .body(body -> body
-                    .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
-                    .div(main -> main
-                        .div(container -> container
-                            .div(card -> card
-                                .div(header -> header
-                                    .h2(ctx.getMessage("login.title"))
-                                ).attr("class", "card-header")
-                                .div(bd -> bd
-                                    .raw(error != null ? "<div class=\"alert alert-danger\">" + escapeHtml(error) + "</div>" : "")
-                                    .form("/login", "post", form -> form
-                                        .input("hidden", ctx.csrfParameterName(), "value", ctx.csrfToken())
-                                        .div(group -> group
-                                            .label(ctx.getMessage("login.email")).attr("for", "email")
-                                            .input("email", "email", "id", "email", "class", "form-control", "required", "required", "autofocus", "autofocus")
-                                        ).attr("class", "mb-3")
-                                        .div(group -> group
-                                            .label(ctx.getMessage("login.password")).attr("for", "password")
-                                            .input("password", "password", "id", "password", "class", "form-control", "required", "required")
-                                        ).attr("class", "mb-3")
-                                        .div(group -> group
-                                            .input("checkbox", "remember", "id", "remember", "class", "form-check-input")
-                                            .label(ctx.getMessage("login.remember")).attr("for", "remember").attr("class", "form-check-label")
-                                        ).attr("class", "mb-3 form-check")
-                                        .button(btn -> btn.text(ctx.getMessage("login.submit"))).attr("type", "submit").attr("class", "btn btn-primary w-100")
-                                    )
-                                    .div(links -> links
-                                        .a("/register", a -> a.text(ctx.getMessage("register.title"))).attr("class", "text-muted")
-                                        .raw(" | ")
-                                        .a("/forgot-password", a -> a.text(ctx.getMessage("login.forgot"))).attr("class", "text-muted")
-                                    ).attr("class", "text-center mt-3")
-                                ).attr("class", "card-body")
-                            ).attr("class", "card auth-card")
-                        ).attr("class", "container py-5 d-flex justify-content-center")
-                    )
-                    .footer(f -> LayoutRenderer.renderFooter(f, ctx))
-                    .script(s -> LayoutRenderer.renderScripts(s, ctx))
-                )
+                .body(body -> {
+                    body
+                        .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
+                        .div(main -> main
+                            .div(container -> container
+                                .div(card -> card
+                                    .div(header -> header
+                                        .h2(ctx.getMessage("login.title"))
+                                    ).attr("class", "card-header")
+                                    .div(bd -> bd
+                                        .raw(error != null ? "<div class=\"alert alert-danger\">" + escapeHtml(error) + "</div>" : "")
+                                        .form("/login", "post", form -> form
+                                            .input("hidden", ctx.csrfParameterName(), "value", ctx.csrfToken())
+                                            .div(group -> group
+                                                .label(ctx.getMessage("login.email")).attr("for", "email")
+                                                .input("email", "email", "id", "email", "class", "form-control", "required", "required", "autofocus", "autofocus")
+                                            ).attr("class", "mb-3")
+                                            .div(group -> group
+                                                .label(ctx.getMessage("login.password")).attr("for", "password")
+                                                .input("password", "password", "id", "password", "class", "form-control", "required", "required")
+                                            ).attr("class", "mb-3")
+                                            .div(group -> group
+                                                .input("checkbox", "remember", "id", "remember", "class", "form-check-input")
+                                                .label(ctx.getMessage("login.remember")).attr("for", "remember").attr("class", "form-check-label")
+                                            ).attr("class", "mb-3 form-check")
+                                            .button(btn -> btn.text(ctx.getMessage("login.submit"))).attr("type", "submit").attr("class", "btn btn-primary w-100")
+                                        )
+                                        .div(links -> links
+                                            .a("/register", a -> a.text(ctx.getMessage("register.title"))).attr("class", "text-muted")
+                                            .raw(" | ")
+                                            .a("/forgot-password", a -> a.text(ctx.getMessage("login.forgot"))).attr("class", "text-muted")
+                                        ).attr("class", "text-center mt-3")
+                                    ).attr("class", "card-body")
+                                ).attr("class", "card auth-card")
+                            ).attr("class", "container py-5 d-flex justify-content-center")
+                        )
+                        .footer(f -> LayoutRenderer.renderFooter(f, ctx));
+                    LayoutRenderer.renderScripts(body, ctx);
+                })
             )
             .build();
     }

@@ -17,14 +17,15 @@ public final class HomePageRenderer {
                     .link("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap", "stylesheet")
                     .style(s -> LayoutRenderer.renderStyles(s, ctx))
                 )
-                .body(body -> body
-                    .nav(nav -> renderNavbar(nav, ctx))
-                    .section(s -> renderHero(s, ctx))
-                    .section(s -> renderFeatures(s, ctx))
-                    .section(s -> renderHowItWorks(s, ctx))
-                    .footer(f -> LayoutRenderer.renderFooter(f, ctx))
-                    .script(s -> renderScripts(s, ctx))
-                )
+                .body(body -> {
+                    body
+                        .nav(nav -> renderNavbar(nav, ctx))
+                        .section(s -> renderHero(s, ctx))
+                        .section(s -> renderFeatures(s, ctx))
+                        .section(s -> renderHowItWorks(s, ctx))
+                        .footer(f -> LayoutRenderer.renderFooter(f, ctx));
+                    renderScripts(body, ctx);
+                })
             )
             .build();
     }

@@ -18,20 +18,21 @@ public final class AppPageRenderer {
                     .style(s -> LayoutRenderer.renderStyles(s, ctx))
                     .link("https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css", "stylesheet")
                 )
-                .body(body -> body
-                    .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
-                    .div(main -> main
-                        .div(container -> container
-                            .h1(ctx.getMessage("app.title")).attr("class", "page-title mb-4")
-                            .p(ctx.getMessage("app.qa.title")).attr("class", "lead")
-                            .div(id -> id.attr("id", "app-root").attr("class", "app-container")
-                                .raw("<!-- Single-page application content rendered client-side -->")
-                            )
-                        ).attr("class", "container py-4")
-                    )
-                    .footer(f -> LayoutRenderer.renderFooter(f, ctx))
-                    .script(s -> LayoutRenderer.renderScripts(s, ctx))
-                )
+                .body(body -> {
+                    body
+                        .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
+                        .div(main -> main
+                            .div(container -> container
+                                .h1(ctx.getMessage("app.title")).attr("class", "page-title mb-4")
+                                .p(ctx.getMessage("app.qa.title")).attr("class", "lead")
+                                .div(id -> id.attr("id", "app-root").attr("class", "app-container")
+                                    .raw("<!-- Single-page application content rendered client-side -->")
+                                )
+                            ).attr("class", "container py-4")
+                        )
+                        .footer(f -> LayoutRenderer.renderFooter(f, ctx));
+                    LayoutRenderer.renderScripts(body, ctx);
+                })
             )
             .build();
     }

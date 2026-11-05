@@ -17,28 +17,29 @@ public final class AboutPageRenderer {
                     .link("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap", "stylesheet")
                     .style(s -> LayoutRenderer.renderStyles(s, ctx))
                 )
-                .body(body -> body
-                    .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
-                    .div(main -> main
-                        .div(container -> container
-                            .h1(ctx.getMessage("about.title")).attr("class", "page-title")
-                            .p(ctx.getMessage("about.description"))
-                            .h2(ctx.getMessage("about.philosophy.title"))
-                            .p(ctx.getMessage("about.philosophy.body"))
-                            .h2(ctx.getMessage("about.features.title"))
-                            .ul(ul -> {
-                                ul.li(ctx.getMessage("about.features.extraction"));
-                                ul.li(ctx.getMessage("about.features.ai"));
-                                ul.li(ctx.getMessage("about.features.privacy"));
-                                ul.li(ctx.getMessage("about.features.offline"));
-                            })
-                            .h2(ctx.getMessage("about.tech.title"))
-                            .p(ctx.getMessage("about.tech.body"))
-                        ).attr("class", "container py-5")
-                    )
-                    .footer(f -> LayoutRenderer.renderFooter(f, ctx))
-                    .script(s -> LayoutRenderer.renderScripts(s, ctx))
-                )
+                .body(body -> {
+                    body
+                        .nav(nav -> LayoutRenderer.renderNavbar(nav, ctx))
+                        .div(main -> main
+                            .div(container -> container
+                                .h1(ctx.getMessage("about.title")).attr("class", "page-title")
+                                .p(ctx.getMessage("about.description"))
+                                .h2(ctx.getMessage("about.philosophy.title"))
+                                .p(ctx.getMessage("about.philosophy.body"))
+                                .h2(ctx.getMessage("about.features.title"))
+                                .ul(ul -> {
+                                    ul.li(ctx.getMessage("about.features.extraction"));
+                                    ul.li(ctx.getMessage("about.features.ai"));
+                                    ul.li(ctx.getMessage("about.features.privacy"));
+                                    ul.li(ctx.getMessage("about.features.offline"));
+                                })
+                                .h2(ctx.getMessage("about.tech.title"))
+                                .p(ctx.getMessage("about.tech.body"))
+                            ).attr("class", "container py-5")
+                        )
+                        .footer(f -> LayoutRenderer.renderFooter(f, ctx));
+                    LayoutRenderer.renderScripts(body, ctx);
+                })
             )
             .build();
     }
