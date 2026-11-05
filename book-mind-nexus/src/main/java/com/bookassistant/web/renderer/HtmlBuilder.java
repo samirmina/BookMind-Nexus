@@ -51,11 +51,12 @@ public final class HtmlBuilder {
             sb.append(" ").append(attrs[i]).append("=\"").append(escape(attrs[i + 1])).append("\"");
         }
         sb.append(">");
+        int myTagEnd = sb.length() - 1;
         int savedTagEnd = lastTagEnd;
-        lastTagEnd = sb.length() - 1;
+        lastTagEnd = myTagEnd;
         indentLevel++;
         content.accept(this);
-        lastTagEnd = savedTagEnd;
+        lastTagEnd = myTagEnd; // restore to MY >, not the pre-tag value
         indentLevel--;
         indent();
         sb.append("</").append(name).append(">");
