@@ -51,7 +51,7 @@ public final class HtmlBuilder {
             sb.append(" ").append(attrs[i]).append("=\"").append(escape(attrs[i + 1])).append("\"");
         }
         sb.append(">");
-        lastTagEnd = sb.length();
+        lastTagEnd = sb.length() - 1; // point to '>' so attributes insert before it
         indentLevel++;
         content.accept(this);
         indentLevel--;
@@ -359,8 +359,21 @@ private int lastTagEnd = -1;
     public HtmlBuilder attr(String name, String value) {
         if (lastTagEnd >= 0) {
             String attrStr = " " + name + "=\"" + escape(value) + "\"";
-            sb.insert(lastTagEnd, attrStr);
-            lastTagEnd += attrStr.length();
+            int attrStart = sb.lastIndexOf(" " + name + "=", lastTagEnd);
+            if (attrStart >= 0) {
+                int attrEnd = sb.indexOf("\"", attrStart + name.length() + 2);
+                if (attrEnd > attrStart) {
+                    int oldLen = attrEnd + 1 - attrStart;
+                    sb.replace(attrStart, attrEnd + 1, attrStr);
+                    lastTagEnd += (attrStr.length() - oldLen);
+                } else {
+                    sb.insert(lastTagEnd, attrStr);
+                    lastTagEnd += attrStr.length();
+                }
+            } else {
+                sb.insert(lastTagEnd, attrStr);
+                lastTagEnd += attrStr.length();
+            }
         }
         return this;
     }
