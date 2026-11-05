@@ -12,7 +12,7 @@ BookMind Nexus extracts verbatim passages from uploaded books so you read the au
 | Framework | Spring Boot 3.5 |
 | Build | Maven |
 | Database | PostgreSQL 16 + pgvector |
-| AI Gateway | Spring Boot 3.5 (Ollama, OpenAI, Anthropic, Google Vertex) |
+| AI Gateway | Spring Boot 3.5 (model-agnostic: Ollama, OpenAI, Anthropic, Google Vertex — user-provided models) |
 | Container | Docker / Docker Compose |
 | PDF parsing | Apache PDFBox 3.0.2 |
 
@@ -57,7 +57,7 @@ BookMind-Nexus/
 │   └── src/main/java/com/bookmind/gateway/
 │       ├── core/                   # Gateway models & orchestration service
 │       ├── controller/             # Gateway REST endpoints
-│       ├── providers/              # Ollama, OpenAI, Anthropic, Google Vertex adapters
+│       ├── providers/              # Ollama, OpenAI, Anthropic, Google Vertex adapters (model-agnostic)
 │       ├── telemetry/              # Gateway telemetry recording
 ├── src/                            # Root resources (config, SQL schemas, messages)
 ├── Dockerfile.ollama               # Ollama LLM service Dockerfile
@@ -74,7 +74,7 @@ BookMind-Nexus/
 - Maven 3.9+
 - Docker and Docker Compose (for containerized deployment)
 - PostgreSQL 16 with the `pgvector` extension (production) — provisioned via Neon
-- An AI provider: Ollama (local), OpenAI, Anthropic, or Google Vertex AI
+- An AI provider: Ollama (local), OpenAI, Anthropic, or Google Vertex AI — models are user-provided; no hardcoded model restrictions
 - Render account (for cloud deployment)
 - Neon account (for managed PostgreSQL)
 
@@ -95,8 +95,8 @@ Key environment variables:
 | `SESSION_TIMEOUT_SECONDS` | Cookie/session timeout (s) | `1800` |
 | `APP_ENCRYPTION_KEY` | **Required.** Base64-encoded 256-bit key for OAuth token encryption | (none) |
 | `DB_USERNAME` / `DB_PASSWORD` / `DB_NAME` | PostgreSQL credentials | `postgres` / (none) / `book_assistant` |
-| `AI_BASE_URL` | AI provider endpoint | `http://localhost:11434/api/generate` |
-| `AI_MODEL` | Chat model | `phi3.5:latest` |
+| `AI_BASE_URL` | AI provider endpoint (e.g. Ollama `http://localhost:11434`) | (none — user-configured) |
+| `AI_MODEL` | Chat model identifier (user-provided; no hardcoded defaults) | (none — user-configured) |
 | `OLLAMA_API_KEY` | API key for non-local AI providers | (none) |
 | `NOTION_OAUTH_CLIENT_ID` / `SECRET` / `REDIRECT_URI` | Notion OAuth credentials | (none) |
 | `SPRING_PROFILES_ACTIVE` | Spring profile (`local`, `docker`, `prod`) | `docker` |
@@ -195,8 +195,9 @@ Accounts / OAuth:
 - `GET/POST /settings/extraction-mode`
 
 AI Gateway:
-- `POST /api/gateway/execute`, `POST /api/gateway/execute/stream`
-- `POST /api/gateway/embed`, `GET /api/gateway/providers`, `GET /api/gateway/health`
+- `POST /api/gateway/execute`, `POST /api/gateway/execute/stream` — requires provider in `context.provider`
+- `POST /api/gateway/embed` — requires `providerId` and `model` in request body
+- `GET /api/gateway/providers`, `GET /api/gateway/health`
 
 ## Contributing
 
@@ -210,9 +211,11 @@ MIT License.
 
 For large book files that are impractical to upload, `BookClientTool` runs entirely on the client
 machine. It reads a PDF from the local filesystem, extracts text from a user-specified page range,
-sends it to a chosen AI service (Ollama, OpenAI, Anthropic, or Google Vertex), and writes the
-result to an output file. The web application invokes the tool and presents the result to the user
-for saving — no book data is ever uploaded to the server.
+sends it to any AI service (Ollama, OpenAI, Anthropic, Google Vertex, or any compatible endpoint),
+and writes the result to an output file. The web application invokes the tool and presents the result
+to the user for saving — no book data is ever uploaded to the server.
+
+AI model selection is entirely user-defined — no hardcoded model restrictions.
 
 ```bash
 # Build
@@ -230,9 +233,10 @@ CLI arguments:
 | 1 | `book-path` | Absolute path to the source PDF |
 | 2 | `start-page` | 1-based inclusive start page |
 | 3 | `end-page` | 1-based inclusive end page |
-| 4 | `ai-service` | `ollama`, `openai`, `anthropic`, or `google-vertex` |
-| 5 | `api-key` | API key for the selected service (or Ollama base URL) |
-| 6 | `output-file` | Path where the result will be written |
+| 4 | `ai-service` | AI provider identifier (`ollama`, `openai`, `anthropic`, `google`, or any configured provider) |
+| 5 | `api-key` | API key or base URL for the selected service |
+| 6 | `model` | Model identifier (user-provided; no hardcoded restrictions) |
+| 7 | `output-file` | Path where the result will be written |
 
 The tool requires PDFBox (already a project dependency) and Jackson for JSON parsing. It uses
 `java.net.http.HttpClient` with bounded connect (10s) and read (300s) timeouts.
