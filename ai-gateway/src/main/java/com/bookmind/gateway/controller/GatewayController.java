@@ -71,14 +71,21 @@ public class GatewayController {
     @PostMapping(value = "/embed", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> embed(@RequestBody Map<String, Object> request) {
         List<String> texts = (List<String>) request.get("texts");
+        String providerId = (String) request.get("providerId");
         String model = (String) request.get("model");
 
         if (texts == null || texts.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "texts array is required"));
         }
+        if (providerId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "providerId is required"));
+        }
+        if (model == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "model is required"));
+        }
 
         try {
-            List<float[]> embeddings = gatewayService.embed(texts, (String) request.get("model"));
+            List<float[]> embeddings = gatewayService.embed(texts, providerId, model);
             return ResponseEntity.ok(Map.of(
                 "embeddings", embeddings,
                 "count", embeddings.size(),

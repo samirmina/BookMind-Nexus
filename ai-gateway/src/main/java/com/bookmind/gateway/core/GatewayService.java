@@ -140,38 +140,25 @@ public class GatewayService {
     }
 
     /**
-     * Generate embeddings using the best available provider.
+     * Generate embeddings using the specified provider and model.
      */
-    public List<float[]> embed(List<String> texts, String preferredModel) {
-        List<AiProvider> providers = providerFactory.getAvailableProviders();
-        if (providers.isEmpty()) {
-            return texts.stream().map(t -> new float[0]).toList();
+    public List<float[]> embed(List<String> texts, String providerId, String model) {
+        AiProvider provider = providerFactory.getProvider(providerId)
+            .orElseThrow(() -> new IllegalArgumentException("Provider not available: " + providerId));
+
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified for embeddings");
         }
-
-        AiProvider provider = providers.stream()
-            .filter(p -> p.getSupportedModels().stream()
-                .anyMatch(m -> m.type().equals("embedding") &&
-                    (preferredModel == null || m.id().equals(preferredModel))))
-            .findFirst()
-            .orElse(providers.get(0));
-
-        String model = preferredModel != null ? preferredModel :
-            provider.getSupportedModels().stream()
-                .filter(m -> m.type().equals("embedding"))
-                .findFirst()
-                .map(ProviderModel::id)
-                .orElse(null);
 
         return provider.embed(texts, model);
     }
 
     /**
-     * Get all available provider models for UI.
+     * Get available provider models.
+     * Models are user-defined; this returns an empty list.
      */
     public java.util.List<ProviderModel> getAvailableModels() {
-        return providerFactory.getAvailableProviders().stream()
-            .flatMap(p -> p.getSupportedModels().stream())
-            .toList();
+        return List.of();
     }
 
     /**

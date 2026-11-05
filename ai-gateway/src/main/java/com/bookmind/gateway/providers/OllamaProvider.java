@@ -48,13 +48,7 @@ public class OllamaProvider implements AiProvider {
 
     @Override
     public List<ProviderModel> getSupportedModels() {
-        return List.of(
-            new ProviderModel("llama3.2:3b", "Llama 3.2 3B", "chat", 131072, true, false, Map.of()),
-            new ProviderModel("llama3.1:8b", "Llama 3.1 8B", "chat", 131072, true, false, Map.of()),
-            new ProviderModel("llama3.1:70b", "Llama 3.1 70B", "chat", 131072, true, false, Map.of()),
-            new ProviderModel("nomic-embed-text", "Nomic Embed Text", "embedding", 8192, false, false, Map.of("dimensions", 768)),
-            new ProviderModel("mxbai-embed-large", "Mxbai Embed Large", "embedding", 8192, false, false, Map.of("dimensions", 1024))
-        );
+        return List.of();
     }
 
     @Override
@@ -107,12 +101,14 @@ public class OllamaProvider implements AiProvider {
 
     @Override
     public List<float[]> embed(List<String> texts, String model) {
-        String embedModel = model != null ? model : "nomic-embed-text";
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified for embeddings");
+        }
 
         return texts.stream()
             .<float[]>map(text -> {
                 Map<String, Object> body = Map.of(
-                    "model", embedModel,
+                    "model", model,
                     "prompt", text
                 );
 
@@ -143,7 +139,7 @@ public class OllamaProvider implements AiProvider {
     public Map<String, Object> getConfigSchema() {
         return Map.of(
             "baseUrl", Map.of("type", "string", "default", "http://localhost:11434"),
-            "model", Map.of("type", "string", "default", "llama3.2:3b"),
+            "model", Map.of("type", "string"),
             "temperature", Map.of("type", "number", "default", 0.1),
             "topP", Map.of("type", "number", "default", 0.9),
             "maxTokens", Map.of("type", "integer", "default", 4096)
@@ -151,7 +147,11 @@ public class OllamaProvider implements AiProvider {
     }
 
     private String extractModel(GatewayRequest request) {
-        return (String) request.parameters().getOrDefault("model", "llama3.2:3b");
+        Object model = request.parameters().get("model");
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified in request parameters");
+        }
+        return model.toString();
     }
 
     private String buildPrompt(GatewayRequest request) {

@@ -50,12 +50,7 @@ public class GoogleVertexProvider implements AiProvider {
 
     @Override
     public List<ProviderModel> getSupportedModels() {
-        return List.of(
-            new ProviderModel("gemini-1.5-pro", "Gemini 1.5 Pro", "chat", 2000000, true, true, Map.of()),
-            new ProviderModel("gemini-1.5-flash", "Gemini 1.5 Flash", "chat", 1000000, true, true, Map.of()),
-            new ProviderModel("gemini-1.0-pro", "Gemini 1.0 Pro", "chat", 32768, true, true, Map.of()),
-            new ProviderModel("text-embedding-004", "Embedding 004", "embedding", 2048, false, false, Map.of("dimensions", 768))
-        );
+        return List.of();
     }
 
     @Override
@@ -118,17 +113,19 @@ public class GoogleVertexProvider implements AiProvider {
 
     @Override
     public List<float[]> embed(List<String> texts, String model) {
-        String embedModel = model != null ? model : "text-embedding-004";
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified for embeddings");
+        }
 
         return texts.stream()
             .map(text -> {
                 Map<String, Object> body = Map.of(
-                    "model", "models/" + embedModel,
+                    "model", "models/" + model,
                     "content", Map.of("parts", List.of(Map.of("text", text)))
                 );
 
                 Map<String, Object> response = webClient.post()
-                    .uri(baseUrl + "/v1beta/models/" + embedModel + ":embedContent")
+                    .uri(baseUrl + "/v1beta/models/" + model + ":embedContent")
                     .header("x-goog-api-key", apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
@@ -157,7 +154,7 @@ public class GoogleVertexProvider implements AiProvider {
         return Map.of(
             "baseUrl", Map.of("type", "string", "default", "https://generativelanguage.googleapis.com"),
             "apiKey", Map.of("type", "string", "format", "password"),
-            "model", Map.of("type", "string", "default", "gemini-1.5-flash"),
+            "model", Map.of("type", "string"),
             "temperature", Map.of("type", "number", "default", 0.1),
             "topP", Map.of("type", "number", "default", 0.9),
             "maxTokens", Map.of("type", "integer", "default", 4096)
@@ -165,7 +162,11 @@ public class GoogleVertexProvider implements AiProvider {
     }
 
     private String extractModel(GatewayRequest request) {
-        return (String) request.parameters().getOrDefault("model", "gemini-1.5-flash");
+        Object model = request.parameters().get("model");
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified in request parameters");
+        }
+        return model.toString();
     }
 
     private String buildUserPrompt(GatewayRequest request) {

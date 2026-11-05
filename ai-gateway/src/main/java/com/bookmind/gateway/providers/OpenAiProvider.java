@@ -51,15 +51,7 @@ public class OpenAiProvider implements AiProvider {
 
     @Override
     public List<ProviderModel> getSupportedModels() {
-        return List.of(
-            new ProviderModel("gpt-4o", "GPT-4o", "chat", 128000, true, true, Map.of()),
-            new ProviderModel("gpt-4o-mini", "GPT-4o Mini", "chat", 128000, true, true, Map.of()),
-            new ProviderModel("gpt-4-turbo", "GPT-4 Turbo", "chat", 128000, true, true, Map.of()),
-            new ProviderModel("gpt-3.5-turbo", "GPT-3.5 Turbo", "chat", 16384, true, true, Map.of()),
-            new ProviderModel("text-embedding-3-small", "Embedding 3 Small", "embedding", 8192, false, false, Map.of("dimensions", 1536)),
-            new ProviderModel("text-embedding-3-large", "Embedding 3 Large", "embedding", 8192, false, false, Map.of("dimensions", 3072)),
-            new ProviderModel("text-embedding-ada-002", "Embedding Ada 002", "embedding", 8192, false, false, Map.of("dimensions", 1536))
-        );
+        return List.of();
     }
 
     @Override
@@ -112,10 +104,12 @@ public class OpenAiProvider implements AiProvider {
 
     @Override
     public List<float[]> embed(List<String> texts, String model) {
-        String embedModel = model != null ? model : "text-embedding-3-small";
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified for embeddings");
+        }
 
         Map<String, Object> body = Map.of(
-            "model", embedModel,
+            "model", model,
             "input", texts
         );
 
@@ -152,7 +146,7 @@ public class OpenAiProvider implements AiProvider {
         return Map.of(
             "baseUrl", Map.of("type", "string", "default", "https://api.openai.com/v1"),
             "apiKey", Map.of("type", "string", "format", "password"),
-            "model", Map.of("type", "string", "default", "gpt-4o-mini"),
+            "model", Map.of("type", "string"),
             "temperature", Map.of("type", "number", "default", 0.1),
             "topP", Map.of("type", "number", "default", 0.9),
             "maxTokens", Map.of("type", "integer", "default", 4096)
@@ -160,7 +154,11 @@ public class OpenAiProvider implements AiProvider {
     }
 
     private String extractModel(GatewayRequest request) {
-        return (String) request.parameters().getOrDefault("model", "gpt-4o-mini");
+        Object model = request.parameters().get("model");
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified in request parameters");
+        }
+        return model.toString();
     }
 
     private List<Map<String, Object>> buildMessages(GatewayRequest request) {

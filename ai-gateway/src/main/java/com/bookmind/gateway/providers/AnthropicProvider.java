@@ -50,12 +50,7 @@ public class AnthropicProvider implements AiProvider {
 
     @Override
     public List<ProviderModel> getSupportedModels() {
-        return List.of(
-            new ProviderModel("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet", "chat", 200000, true, true, Map.of()),
-            new ProviderModel("claude-3-opus-20240229", "Claude 3 Opus", "chat", 200000, true, true, Map.of()),
-            new ProviderModel("claude-3-sonnet-20240229", "Claude 3 Sonnet", "chat", 200000, true, true, Map.of()),
-            new ProviderModel("claude-3-haiku-20240307", "Claude 3 Haiku", "chat", 200000, true, true, Map.of())
-        );
+        return List.of();
     }
 
     @Override
@@ -116,14 +111,18 @@ public class AnthropicProvider implements AiProvider {
         return Map.of(
             "baseUrl", Map.of("type", "string", "default", "https://api.anthropic.com"),
             "apiKey", Map.of("type", "string", "format", "password"),
-            "model", Map.of("type", "string", "default", "claude-3-5-sonnet-20241022"),
+            "model", Map.of("type", "string"),
             "temperature", Map.of("type", "number", "default", 0.1),
             "maxTokens", Map.of("type", "integer", "default", 4096)
         );
     }
 
     private String extractModel(GatewayRequest request) {
-        return (String) request.parameters().getOrDefault("model", "claude-3-5-sonnet-20241022");
+        Object model = request.parameters().get("model");
+        if (model == null) {
+            throw new IllegalArgumentException("Model must be specified in request parameters");
+        }
+        return model.toString();
     }
 
     private String buildUserPrompt(GatewayRequest request) {
