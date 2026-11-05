@@ -7,6 +7,8 @@ import com.bookassistant.util.LoggingUtils;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -71,5 +73,11 @@ public class PageController {
     public String showAboutPage() {
         log.debug("About page requested");
         return "about";
+    }
+
+    @GetMapping(value = "/favicon.ico", produces = "image/svg+xml")
+    public ResponseEntity<String> favicon() {
+        String svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>";
+        return ResponseEntity.ok().body(svg);
     }
 }
