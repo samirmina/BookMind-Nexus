@@ -126,15 +126,13 @@ public final class LayoutRenderer {
     }
 
     public static void renderScripts(HtmlBuilder s, PageContext ctx) {
-        s.attr("src", "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js");
+        s.script("https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js");
         s.raw("\n");
-        s.attr("src", "https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js");
+        s.script("https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js");
         s.raw("\n");
     }
 
     public static void renderStyles(HtmlBuilder s, PageContext ctx) {
-        s.raw("\n");
-        s.raw("<style>");
         s.raw(".brand-icon{font-size:1.5rem;margin-right:0.5rem}");
         s.raw(".hero-ar,.hero-en{font-size:1.25rem;font-weight:600;margin-bottom:0.5rem}");
         s.raw(".hero-title{font-size:2.5rem;font-weight:700;margin-bottom:1rem}");
@@ -149,9 +147,5 @@ public final class LayoutRenderer {
         s.raw(".step-num{font-size:2rem;font-weight:700;color:var(--bs-primary);display:block;margin-bottom:0.5rem}");
         s.raw(".auth-card{max-width:400px;width:100%}");
         s.raw(".navbar-inner{background:var(--bs-dark)}");
-        s.raw("</style>");
-        s.raw("\n");
-        s.raw("<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%3E%3C/svg%3E\" type=\"image/svg+xml\">");
-        s.raw("\n");
     }
 }
