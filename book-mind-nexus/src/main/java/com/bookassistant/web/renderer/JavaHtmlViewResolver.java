@@ -43,6 +43,10 @@ public class JavaHtmlViewResolver implements ViewResolver {
                 return new JavaHtmlView(LoginPageRenderer::render);
             case "index":
                 return new JavaHtmlView(AppPageRenderer::render);
+            case "outputs/index":
+                return new JavaHtmlView(OutputsPageRenderer::render);
+            case "accounts/index":
+                return new JavaHtmlView(AccountsPageRenderer::render);
             default:
                 return null;
         }
