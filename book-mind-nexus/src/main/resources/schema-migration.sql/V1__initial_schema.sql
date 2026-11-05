@@ -5,11 +5,8 @@
 --   users, books, book_chunks, book_outputs, external_notes,
 --   linked_accounts, reading_progress
 -- =============================================================================
-
--- pgvector extension for vector embeddings (RAG)
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- -------------------------------------------------
+-- pgvector extension is enabled on the Neon database directly
+-- =============================================================================
 -- users
 -- -------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
