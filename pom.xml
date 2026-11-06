@@ -12,7 +12,6 @@
 
     <modules>
         <module>book-mind-nexus</module>
-        <module>ai-gateway</module>
     </modules>
 
     <parent>
